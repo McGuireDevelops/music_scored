@@ -1,0 +1,279 @@
+rules_version = '2';
+// Professional Film Music Learning Platform – Firestore security rules.
+// Role-based: student, teacher, admin. Access uses AccessGrant + role only; no payment in access path.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User has valid access grant for class. Grants stored under users/{uid}/accessGrants/{classId} (or grantId with classId in scope).
+    // Also allow teacher who owns class and admin.
+    function hasValidAccessGrant(classId) {
+      let uid = request.auth.uid;
+      let userDoc = get(/databases/$(database)/documents/users/$(uid));
+      let teacherOwns = userDoc.data.role == 'teacher' && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == uid;
+      let admin = userDoc.data.role == 'admin';
+      let grantPath = /databases/$(database)/documents/users/$(uid)/accessGrants/$(classId);
+      let hasGrant = exists(grantPath) && get(grantPath).data.validFrom <= request.time.toMillis() && get(grantPath).data.validTo >= request.time.toMillis();
+      return request.auth != null && (teacherOwns || admin || (userDoc.data.role == 'student' && hasGrant));
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isTeacher() {
+      return request.auth != null && userRole() == 'teacher';
+    }
+
+    function isStudent() {
+      return request.auth != null && userRole() == 'student';
+    }
+
+    function isAdmin() {
+      return request.auth != null && userRole() == 'admin';
+    }
+
+    function isClassTeacher(classId) {
+      return isTeacher() && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+    }
+
+    // Student can access class content only if they have a valid grant AND have fulfilled mandatory entry requirements
+    // (NDA, end-user agreement, etc.). Enrollment doc id must be userId for this check.
+    function hasFulfilledMandatoryRequirements(classId) {
+      let classDoc = get(/databases/$(database)/documents/classes/$(classId));
+      let mandatoryIds = classDoc.data.get('mandatoryRequirementIds', null);
+      return mandatoryIds == null || mandatoryIds.size() == 0
+        || (exists(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid))
+            && get(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid)).data.get('status', 'enrolled') == 'enrolled');
+    }
+
+    function studentCanAccessClassContent(classId) {
+      return isStudent() && hasValidAccessGrant(classId) && hasFulfilledMandatoryRequirements(classId);
+    }
+
+    // Users: own doc only
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // AccessGrants (top-level for listing): written by backend/payment; students read own
+    match /accessGrants/{grantId} {
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Per-class access grant for rule evaluation: users/{uid}/accessGrants/{classId} with validFrom, validTo
+    match /users/{userId}/accessGrants/{classId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // only Cloud Functions / Admin SDK
+    }
+
+    // Classes: teacher CRUD own; student read if has valid AccessGrant and fulfilled mandatory entry requirements
+    match /classes/{classId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(classId)
+        || studentCanAccessClassContent(classId)
+        || isAdmin()
+      );
+      allow create: if isTeacher();
+      allow update, delete: if isClassTeacher(classId);
+    }
+
+    match /classes/{classId}/cohorts/{cohortId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(classId) || studentCanAccessClassContent(classId) || isAdmin()
+      );
+      allow write: if isClassTeacher(classId);
+    }
+
+    match /classes/{classId}/enrollments/{enrollmentId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if isTeacher() || isAdmin();
+      allow update, delete: if isClassTeacher(classId) || isAdmin();
+    }
+
+    // Entry requirements (NDA, end-user agreement, custom forms): teacher CRUD; students read when they have grant (to complete)
+    match /classes/{classId}/entryRequirements/{reqId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(classId) || (isStudent() && hasValidAccessGrant(classId)) || isAdmin()
+      );
+      allow create, update, delete: if isClassTeacher(classId);
+    }
+
+    // Requirement completions: student write own; teacher read for roster
+    match /classes/{classId}/requirementCompletions/{completionId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if isStudent() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if resource.data.userId == request.auth.uid || isClassTeacher(classId);
+    }
+
+    // Curricula / modules: same as class access (student must have fulfilled mandatory requirements)
+    match /curricula/{docId} {
+      allow read: if request.auth != null && (
+        isTeacher() && get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.teacherId == request.auth.uid
+        || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow write: if isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid;
+    }
+
+    match /modules/{moduleId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow write: if isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid;
+    }
+
+    // Lessons (recorded)
+    match /lessons/{lessonId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Live lessons
+    match /liveLessons/{lessonId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Assignments
+    match /assignments/{assignmentId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /assignments/{assignmentId}/submissions/{submissionId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId)
+        || resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if isStudent() && request.resource.data.userId == request.auth.uid
+        && studentCanAccessClassContent(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId);
+      allow update, delete: if resource.data.userId == request.auth.uid
+        || isClassTeacher(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId);
+    }
+
+    // Rubrics: teacher CRUD own; students can read (e.g. when viewing assignment/feedback)
+    match /rubrics/{rubricId} {
+      allow read: if request.auth != null;
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Feedback: teacher write; student read own
+    match /feedback/{feedbackId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || resource.data.teacherId == request.auth.uid
+        || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // Quizzes
+    match /quizzes/{quizId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /quizzes/{quizId}/questions/{qId} {
+      allow read, write: if request.auth != null && (
+        isTeacher() && get(/databases/$(database)/documents/quizzes/$(quizId)).data.ownerId == request.auth.uid
+        || studentCanAccessClassContent(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId)
+      );
+    }
+
+    match /quizzes/{quizId}/attempts/{attemptId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isClassTeacher(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId)
+        || isAdmin()
+      );
+      allow create: if isStudent() && request.resource.data.userId == request.auth.uid
+        && studentCanAccessClassContent(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId);
+      allow update, delete: if resource.data.userId == request.auth.uid;
+    }
+
+    // Analysis snapshots: teacher-only; students never see
+    match /analysisSnapshots/{snapshotId} {
+      allow read, write: if isTeacher() && (
+        resource.data.createdBy == request.auth.uid
+        || (request.resource != null && request.resource.data.createdBy == request.auth.uid)
+      );
+      allow read, write: if isAdmin();
+    }
+
+    // Communities
+    match /communities/{communityId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /communities/{communityId}/threads/{threadId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(get(/databases/$(database)/documents/communities/$(communityId)).data.classId)
+        || studentCanAccessClassContent(get(/databases/$(database)/documents/communities/$(communityId)).data.classId)
+      );
+      allow create: if isStudent() || isTeacher();
+      allow update, delete: if resource.data.authorId == request.auth.uid || isClassTeacher(get(/databases/$(database)/documents/communities/$(communityId)).data.classId);
+    }
+
+    // Portfolio: student-controlled
+    match /portfolioItems/{itemId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isClassTeacher(resource.data.classId)
+        || isAdmin()
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Certifications: teacher issue; student read own
+    match /certifications/{certId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || resource.data.issuedBy == request.auth.uid
+        || isAdmin()
+      );
+      allow create: if isTeacher() && request.resource.data.issuedBy == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.issuedBy == request.auth.uid;
+    }
+
+    // Teacher profiles (public page): read by anyone; write own
+    match /teacherProfiles/{profileId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Enrollments (top-level if used)
+    match /enrollments/{enrollmentId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || isClassTeacher(resource.data.classId)
+        || isAdmin()
+      );
+      allow write: if isTeacher() || isAdmin();
+    }
+  }
+}

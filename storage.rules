@@ -1,0 +1,39 @@
+rules_version = '2';
+// Storage: submissions by student and class teacher; analysis snapshots teacher-only; DAW/lesson media by enrolled students.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Assignments submissions: assignments/{assignmentId}/submissions/{submissionId}/*
+    // Student can write own; student and class teacher can read
+    match /assignments/{assignmentId}/submissions/{submissionId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        resource.metadata.userId == request.auth.uid
+        || resource.metadata.teacherId == request.auth.uid
+      );
+      allow write: if request.auth != null && request.resource.metadata.userId == request.auth.uid;
+    }
+
+    // Analysis snapshots: teacher-only
+    match /analysisSnapshots/{allPaths=**} {
+      allow read, write: if request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['teacher', 'admin'];
+    }
+
+    // Class lesson media and DAW templates: readable by enrolled students and class teacher
+    match /classes/{classId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && firestore.get(/databases/(default)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+    }
+
+    // User feedback uploads (voice/video): teacher write; student (subject) and teacher read
+    match /users/{userId}/feedback/{allPaths=**} {
+      allow read: if request.auth != null && (
+        resource.metadata.userId == request.auth.uid
+        || resource.metadata.teacherId == request.auth.uid
+      );
+      allow write: if request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+  }
+}

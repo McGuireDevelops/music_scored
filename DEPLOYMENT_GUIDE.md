@@ -53,6 +53,11 @@ cd ..
 firebase deploy
 ```
 
+### Enable Google Sign-In
+
+1. Firebase Console → **Authentication** → **Sign-in method**
+2. Click **Google** → **Enable** → **Save**
+
 ### Add Vercel domain to Firebase Auth
 
 1. Firebase Console → **Authentication** → **Settings** → **Authorized domains**

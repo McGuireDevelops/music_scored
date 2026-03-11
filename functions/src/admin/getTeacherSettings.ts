@@ -12,6 +12,7 @@ const DEFAULT_FEATURES = {
   certificates: true,
   playlists: true,
   paidClasses: true,
+  officeHours: true,
 };
 
 async function assertTeacherOrAdmin(uid: string): Promise<void> {

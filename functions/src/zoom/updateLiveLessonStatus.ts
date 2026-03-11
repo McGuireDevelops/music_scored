@@ -31,7 +31,9 @@ export const updateLiveLessonStatus = onCall(async (request) => {
     throw new HttpsError("not-found", "Live lesson not found");
   }
   const data = snap.data()!;
-  if (data.ownerId !== uid) {
+  const callerDoc = await admin.firestore().doc(`users/${uid}`).get();
+  const callerRole = callerDoc.data()?.role;
+  if (data.ownerId !== uid && callerRole !== "admin") {
     throw new HttpsError("permission-denied", "Only the lesson owner can update status");
   }
 

@@ -367,11 +367,11 @@ service cloud.firestore {
       allow write: if isTeacher() || isAdmin();
     }
 
-    // Teacher availability for 1-on-1 bookings: teacher writes own; authenticated users read (students browse slots)
+    // Teacher availability for 1-on-1 bookings: teacher/admin writes own; authenticated users read (students browse slots)
     match /teacherAvailability/{teacherId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == teacherId && isTeacher();
-      allow update, delete: if request.auth != null && request.auth.uid == teacherId && isTeacher();
+      allow create: if request.auth != null && request.auth.uid == teacherId && userRole() in ['teacher', 'admin'];
+      allow update, delete: if request.auth != null && request.auth.uid == teacherId && userRole() in ['teacher', 'admin'];
     }
 
     // Bookings: teacher or student involved can read; writes only via Cloud Functions (Admin SDK)

@@ -24,7 +24,7 @@ export default function TeacherAvailabilityPage() {
   const { user } = useAuth();
   const uid = user?.uid;
   const { availability, loading, error, saveAvailability } = useTeacherAvailability(uid);
-  const { settings } = useTeacherSettings(uid);
+  const { settings, permissionError } = useTeacherSettings(uid);
 
   const hasZoom = !!(settings?.zoomAccountId && settings?.zoomClientId && settings?.zoomClientSecret);
 
@@ -100,9 +100,9 @@ export default function TeacherAvailabilityPage() {
           Set your availability for 1-on-1 student sessions.
         </p>
 
-        {error && (
+        {(error || permissionError) && (
           <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+            {error || permissionError}
           </div>
         )}
 

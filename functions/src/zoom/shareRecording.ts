@@ -42,7 +42,9 @@ export const shareRecording = onCall(async (request) => {
 
   const sourceData = sourceDoc.data()!;
   const ownerField = sourceType === "liveLesson" ? "ownerId" : "teacherId";
-  if (sourceData[ownerField] !== uid) {
+  const callerDoc = await db.doc(`users/${uid}`).get();
+  const callerRole = callerDoc.data()?.role;
+  if (sourceData[ownerField] !== uid && callerRole !== "admin") {
     throw new HttpsError("permission-denied", "Only the owner can share recordings");
   }
 

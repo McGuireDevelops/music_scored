@@ -27,7 +27,7 @@ export function useBookings(
     setError(null);
 
     try {
-      const field = role === "teacher" ? "teacherId" : "studentId";
+      const field = role === "teacher" || role === "admin" ? "teacherId" : "studentId";
       const q = query(collection(db, "bookings"), where(field, "==", uid));
       const snap = await getDocs(q);
 

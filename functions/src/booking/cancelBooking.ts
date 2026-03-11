@@ -29,8 +29,10 @@ export const cancelBooking = onCall(async (request) => {
 
   const isStudent = data.studentId === uid;
   const isTeacher = data.teacherId === uid;
+  const userDoc = await admin.firestore().doc(`users/${uid}`).get();
+  const isAdmin = userDoc.data()?.role === "admin";
 
-  if (!isStudent && !isTeacher) {
+  if (!isStudent && !isTeacher && !isAdmin) {
     throw new HttpsError("permission-denied", "You are not part of this booking");
   }
 

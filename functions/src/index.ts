@@ -10,9 +10,19 @@ import {
   requestAnalysis,
   saveAnalysisSnapshot,
 } from "./ai/analysis";
+import {
+  createCheckoutSession,
+  stripeWebhook,
+} from "./stripe/checkout";
 
 setGlobalOptions({ maxInstances: 10 });
 
 admin.initializeApp();
 
-export { onUserCreate, requestAnalysis, saveAnalysisSnapshot };
+export {
+  onUserCreate,
+  requestAnalysis,
+  saveAnalysisSnapshot,
+  createCheckoutSession,
+  stripeWebhook,
+};

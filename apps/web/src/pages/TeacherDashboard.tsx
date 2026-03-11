@@ -12,6 +12,8 @@ export default function TeacherDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isPaid, setIsPaid] = useState(false);
+  const [stripePriceId, setStripePriceId] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -27,6 +29,12 @@ export default function TeacherDashboard() {
         teacherId: user.uid,
         createdAt: Date.now(),
       });
+      await addDoc(collection(db, "communities"), {
+        classId: ref.id,
+        ownerId: user.uid,
+        name: "General",
+        createdAt: Date.now(),
+      });
       setClasses((prev) => [
         ...prev,
         {
@@ -38,6 +46,8 @@ export default function TeacherDashboard() {
       ]);
       setName("");
       setDescription("");
+      setIsPaid(false);
+      setStripePriceId("");
       setShowForm(false);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create class");
@@ -84,6 +94,26 @@ export default function TeacherDashboard() {
                 onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
+            </div>
+            <div className="mb-4">
+              <label className="mb-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isPaid}
+                  onChange={(e) => setIsPaid(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm font-medium text-gray-700">Paid class</span>
+              </label>
+              {isPaid && (
+                <input
+                  type="text"
+                  placeholder="Stripe Price ID (e.g. price_...)"
+                  value={stripePriceId}
+                  onChange={(e) => setStripePriceId(e.target.value)}
+                  className="mb-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              )}
             </div>
             <div className="mb-4">
               <label htmlFor="class-desc" className="mb-1.5 block text-sm font-medium text-gray-700">

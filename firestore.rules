@@ -71,15 +71,15 @@ service cloud.firestore {
       allow write: if false; // only Cloud Functions / Admin SDK
     }
 
-    // Classes: teacher CRUD own; student read if has valid AccessGrant and fulfilled mandatory entry requirements
+    // Classes: teacher CRUD own; admin can create/read; student read if has valid AccessGrant and fulfilled mandatory entry requirements
     match /classes/{classId} {
       allow read: if request.auth != null && (
         isClassTeacher(classId)
         || studentCanAccessClassContent(classId)
         || isAdmin()
       );
-      allow create: if isTeacher();
-      allow update, delete: if isClassTeacher(classId);
+      allow create: if isTeacher() || isAdmin();
+      allow update, delete: if isClassTeacher(classId) || isAdmin();
     }
 
     match /classes/{classId}/cohorts/{cohortId} {

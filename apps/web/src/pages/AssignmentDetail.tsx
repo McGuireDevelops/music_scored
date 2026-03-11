@@ -10,7 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db, storage, functions, httpsCallable } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useSubmissionFeedback, useCreateFeedback } from "../hooks/useFeedback";
@@ -179,6 +179,12 @@ export default function AssignmentDetail() {
           </>
         )}
 
+        {isTeacher && selectedSubmission && (
+          <AIAnalysisPanel
+            submission={selectedSubmission}
+            assignmentId={assignmentId!}
+          />
+        )}
         {isTeacher && selectedSubmission && !feedback && rubrics.length > 0 && (
           <GiveFeedbackForm
             submissionId={selectedSubmission.id}
@@ -194,6 +200,128 @@ export default function AssignmentDetail() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+function AIAnalysisPanel({
+  submission,
+  assignmentId,
+}: {
+  submission: Submission;
+  assignmentId: string;
+}) {
+  const [draft, setDraft] = useState<{
+    source: string;
+    sourceId: string;
+    confidence: number;
+    payload: Record<string, unknown>;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingPayload, setEditingPayload] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const requestAnalysis = httpsCallable<
+    { source: string; sourceId: string; mediaRef?: { type: string; resourceId: string; start?: number; end?: number } },
+    { draft: { source: string; sourceId: string; confidence: number; payload: Record<string, unknown> } }
+  >(functions, "requestAnalysis");
+
+  const saveAnalysisSnapshot = httpsCallable<
+    { source: string; sourceId: string; confidence?: number; payload: Record<string, unknown>; editedByTeacher: boolean },
+    { id: string }
+  >(functions, "saveAnalysisSnapshot");
+
+  const handleAnalyze = async () => {
+    setLoading(true);
+    try {
+      const mediaRef = submission.mediaRefs?.[0];
+      const res = await requestAnalysis({
+        source: "submission",
+        sourceId: submission.id,
+        mediaRef: mediaRef
+          ? {
+              type: mediaRef.type,
+              resourceId: mediaRef.resourceId,
+              start: mediaRef.start,
+              end: mediaRef.end,
+            }
+          : undefined,
+      });
+      const data = res.data;
+      if (data?.draft) {
+        setDraft(data.draft);
+        setEditingPayload(JSON.stringify(data.draft.payload, null, 2));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      let payload: Record<string, unknown>;
+      try {
+        payload = JSON.parse(editingPayload) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      await saveAnalysisSnapshot({
+        source: draft.source,
+        sourceId: draft.sourceId,
+        confidence: draft.confidence,
+        payload,
+        editedByTeacher: true,
+      });
+      setSaved(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <h4 className="mb-2 font-medium text-gray-900">AI analysis</h4>
+      {!draft ? (
+        <button
+          type="button"
+          onClick={handleAnalyze}
+          disabled={loading}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+        >
+          {loading ? "Analyzing…" : "Analyze with AI"}
+        </button>
+      ) : (
+        <div>
+          <textarea
+            value={editingPayload}
+            onChange={(e) => setEditingPayload(e.target.value)}
+            className="mb-2 w-full rounded-lg border border-gray-300 p-3 font-mono text-sm"
+            rows={10}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save analysis snapshot"}
+            </button>
+            {saved && (
+              <span className="flex items-center text-sm text-green-600">
+                Saved.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

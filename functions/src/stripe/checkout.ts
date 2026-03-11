@@ -1,0 +1,126 @@
+/**
+ * Stripe integration for paid class access
+ * createCheckoutSession: callable, returns Stripe Checkout URL
+ * stripeWebhook: HTTP, handles checkout.session.completed, writes access grant
+ */
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onRequest } from "firebase-functions/v2/https";
+import * as admin from "firebase-admin";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+
+const GRANT_DURATION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
+
+/**
+ * Callable: createCheckoutSession
+ * Creates Stripe Checkout Session for a paid class. Returns URL to redirect.
+ */
+export const createCheckoutSession = onCall(
+  { enforceAppCheck: false },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in");
+    }
+    const uid = request.auth.uid;
+    const email = request.auth.token.email as string | undefined;
+
+    const classId = request.data?.classId as string | undefined;
+    if (!classId) {
+      throw new HttpsError("invalid-argument", "classId required");
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe is not configured. Set STRIPE_SECRET_KEY."
+      );
+    }
+
+    const classDoc = await admin.firestore().doc(`classes/${classId}`).get();
+    if (!classDoc.exists) {
+      throw new HttpsError("not-found", "Class not found");
+    }
+    const classData = classDoc.data()!;
+    const stripePriceId = classData.stripePriceId as string | undefined;
+    if (!stripePriceId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This class is not set up for payment. Ask the teacher to add a Stripe price."
+      );
+    }
+
+    const origin = request.rawRequest.headers.origin ?? "http://localhost:5173";
+    const successUrl = `${origin}/student?checkout=success`;
+    const cancelUrl = `${origin}/purchase/${classId}?checkout=cancelled`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{ price: stripePriceId, quantity: 1 }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      customer_email: email ?? undefined,
+      client_reference_id: uid,
+      metadata: {
+        classId,
+        userId: uid,
+      },
+    });
+
+    return {
+      url: session.url,
+      sessionId: session.id,
+      className: classData.name ?? "Class",
+    };
+  }
+);
+
+/**
+ * HTTP: stripeWebhook
+ * Handles Stripe webhook events. Verify signature with STRIPE_WEBHOOK_SECRET.
+ */
+export const stripeWebhook = onRequest(async (req, res) => {
+  const sig = req.headers["stripe-signature"] as string | undefined;
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!secret || !sig) {
+    res.status(400).send("Webhook secret or signature missing");
+    return;
+  }
+
+  let event: Stripe.Event;
+  try {
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+      res.status(400).send("Raw body required for signature verification");
+      return;
+    }
+    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(400).send(`Webhook signature verification failed: ${message}`);
+    return;
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const classId = session.metadata?.classId;
+    const userId = session.metadata?.userId ?? session.client_reference_id;
+
+    if (classId && userId) {
+      const now = Date.now();
+      const validTo = now + GRANT_DURATION_MS;
+      await admin.firestore().doc(`users/${userId}/accessGrants/${classId}`).set(
+        {
+          validFrom: now,
+          validTo,
+          paymentRef: session.payment_intent ?? session.id,
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  res.status(200).send("OK");
+});

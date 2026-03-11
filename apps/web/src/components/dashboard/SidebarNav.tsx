@@ -5,8 +5,10 @@ const navItems: { to: string; label: string; roles?: string[] }[] = [
   { to: "/", label: "Dashboard" },
   { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher", label: "Teaching", roles: ["teacher", "admin"] },
+  { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
   { to: "/student/portfolio", label: "Library", roles: ["student", "admin"] },
+  { to: "/student/certifications", label: "Certifications", roles: ["student", "admin"] },
   { to: "#", label: "Calendar" },
   { to: "#", label: "Help" },
 ];

@@ -42,10 +42,21 @@ Get these from [Firebase Console](https://console.firebase.google.com) → your 
 1. Open `.firebaserc` in the project root
 2. Replace `"your-project-id"` with your Firebase project ID
 
+### Functions environment variables
+
+Set these for Cloud Functions (Firebase Console → Functions → select function → Environment variables, or `firebase functions:config:set`):
+
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_API_KEY` | Optional. Google AI key for AI analysis of submissions |
+| `STRIPE_SECRET_KEY` | Stripe secret key for paid classes |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (from Stripe Dashboard → Webhooks) |
+
+For Stripe webhook: create a webhook in Stripe pointing to your function URL (e.g. `https://us-central1-YOUR_PROJECT.cloudfunctions.net/stripeWebhook`) for event `checkout.session.completed`. Use the signing secret as `STRIPE_WEBHOOK_SECRET`.
+
 ### Deploy Firebase
 
 ```powershell
-cd C:\Users\rober\expo-projects\music-scored
 cd functions
 npm install
 npm run build

@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { collection, getDocs, query, where, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -8,7 +8,12 @@ import type { Thread, ThreadType } from "@learning-scores/shared";
 
 export default function CommunityPage() {
   const { classId } = useParams<{ classId: string }>();
+  const { pathname } = useLocation();
   const { user } = useAuth();
+  const isTeacher = pathname.startsWith("/teacher");
+  const backTo = isTeacher
+    ? `/teacher/class/${classId}`
+    : `/student/class/${classId}`;
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([]);
   const [threads, setThreads] = useState<(Thread & { id: string })[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -88,7 +93,7 @@ export default function CommunityPage() {
     <ProtectedRoute>
       <div>
         <Link
-          to={`/student/class/${classId}`}
+          to={backTo}
           style={{ color: "#666", marginBottom: "1rem", display: "inline-block" }}
         >
           ← Back to class

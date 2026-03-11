@@ -1,6 +1,6 @@
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,6 +8,10 @@ import { useClassModules } from "../hooks/useClassModules";
 import { useModuleLessons } from "../hooks/useModuleLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
+import { useClassLiveLessons } from "../hooks/useLiveLessons";
+import { useClassCohorts } from "../hooks/useCohorts";
+import { useClassEnrollments } from "../hooks/useEnrollments";
+import { useIssueCertification } from "../hooks/useCertifications";
 import { LessonViewer } from "../components/LessonViewer";
 import { TabBar } from "../components/dashboard/TabBar";
 import { ModuleNav } from "../components/dashboard/ModuleNav";
@@ -16,12 +20,14 @@ import { formatUtcForDisplay } from "../utils/timezone";
 import type { ModuleWithId } from "../hooks/useClassModules";
 import type { LessonWithId } from "../hooks/useModuleLessons";
 
-type Tab = "curriculum" | "assignments" | "quizzes" | "community" | "portfolio";
+type Tab = "curriculum" | "assignments" | "quizzes" | "live" | "roster" | "community" | "portfolio";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "curriculum", label: "Modules" },
   { id: "assignments", label: "Assignments" },
   { id: "quizzes", label: "Quizzes" },
+  { id: "live", label: "Live" },
+  { id: "roster", label: "Roster" },
   { id: "community", label: "Community" },
   { id: "portfolio", label: "Portfolio" },
 ];
@@ -57,6 +63,25 @@ export default function ClassDetail() {
   } = useClassAssignments(id);
 
   const { quizzes, loading: quizzesLoading } = useClassQuizzes(id);
+  const {
+    lessons: liveLessons,
+    loading: liveLoading,
+    createLiveLesson,
+    deleteLiveLesson,
+  } = useClassLiveLessons(id);
+  const {
+    cohorts,
+    loading: cohortsLoading,
+    createCohort,
+    deleteCohort,
+  } = useClassCohorts(id);
+  const {
+    enrollments,
+    loading: enrollmentsLoading,
+    addEnrollment,
+    removeEnrollment,
+  } = useClassEnrollments(id);
+  const { issueCertification } = useIssueCertification(user?.uid);
 
   useEffect(() => {
     if (!id) return;
@@ -98,7 +123,11 @@ export default function ClassDetail() {
               )}
             </div>
             <TabBar
-              tabs={TABS.filter((t) => t.id !== "portfolio" || !isTeacherRoute)}
+              tabs={TABS.filter((t) => {
+                if (t.id === "portfolio") return !isTeacherRoute;
+                if (t.id === "roster") return isTeacherRoute;
+                return true;
+              })}
               activeTab={activeTab}
               onTabChange={(tabId) => setActiveTab(tabId as Tab)}
             />
@@ -138,6 +167,31 @@ export default function ClassDetail() {
                   isTeacher={isTeacherRoute}
                   createAssignment={createAssignment}
                   userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "live" && (
+                <LiveLessonsTab
+                  lessons={liveLessons}
+                  loading={liveLoading}
+                  isTeacher={isTeacherRoute}
+                  createLiveLesson={createLiveLesson}
+                  deleteLiveLesson={deleteLiveLesson}
+                  classId={id!}
+                  userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "roster" && isTeacherRoute && (
+                <RosterTab
+                  cohorts={cohorts}
+                  enrollments={enrollments}
+                  cohortsLoading={cohortsLoading}
+                  enrollmentsLoading={enrollmentsLoading}
+                  createCohort={createCohort}
+                  deleteCohort={deleteCohort}
+                  addEnrollment={addEnrollment}
+                  removeEnrollment={removeEnrollment}
+                  issueCertification={issueCertification}
+                  classId={id!}
                 />
               )}
               {activeTab === "community" && (
@@ -353,6 +407,335 @@ function QuizzesTab({
             >
               <span className="font-medium text-gray-900">{q.title}</span>
             </Link>
+          ))}
+        </div>
+      )}
+    </ContentPane>
+  );
+}
+
+function RosterTab({
+  cohorts,
+  enrollments,
+  cohortsLoading,
+  enrollmentsLoading,
+  createCohort,
+  deleteCohort,
+  addEnrollment,
+  removeEnrollment,
+  issueCertification,
+  classId,
+}: {
+  cohorts: import("../hooks/useCohorts").CohortWithId[];
+  enrollments: import("../hooks/useEnrollments").EnrollmentWithId[];
+  cohortsLoading: boolean;
+  enrollmentsLoading: boolean;
+  createCohort: (data: { name: string; limit?: number }) => Promise<void>;
+  deleteCohort: (id: string) => Promise<void>;
+  addEnrollment: (userId: string, cohortId?: string, status?: string) => Promise<void>;
+  removeEnrollment: (userId: string) => Promise<void>;
+  classId: string;
+}) {
+  const [newCohortName, setNewCohortName] = useState("");
+  const [newCohortCreating, setNewCohortCreating] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addCohortId, setAddCohortId] = useState("");
+  const [addingEnrollment, setAddingEnrollment] = useState(false);
+  const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
+  const [issuingFor, setIssuingFor] = useState<string | null>(null);
+
+  const handleCreateCohort = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCohortName.trim()) return;
+    setNewCohortCreating(true);
+    try {
+      await createCohort({ name: newCohortName.trim() });
+      setNewCohortName("");
+    } finally {
+      setNewCohortCreating(false);
+    }
+  };
+
+  const handleAddEnrollment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addEmail.trim()) return;
+    setAddingEnrollment(true);
+    setEnrollmentError(null);
+    try {
+      const snapshot = await getDocs(
+        query(
+          collection(db, "users"),
+          where("email", "==", addEmail.trim().toLowerCase())
+        )
+      );
+      if (snapshot.empty) {
+        setEnrollmentError("No user found with that email");
+        return;
+      }
+      const userDoc = snapshot.docs[0];
+      await addEnrollment(userDoc.id, addCohortId || undefined);
+      setAddEmail("");
+      setAddCohortId("");
+    } catch (err) {
+      setEnrollmentError(err instanceof Error ? err.message : "Failed to add");
+    } finally {
+      setAddingEnrollment(false);
+    }
+  };
+
+  const handleIssueCert = async (userId: string) => {
+    if (!issueCertification) return;
+    setIssuingFor(userId);
+    try {
+      await issueCertification({ userId, classId });
+    } finally {
+      setIssuingFor(null);
+    }
+  };
+
+  return (
+    <ContentPane title="Roster">
+      <section className="mb-8">
+        <h3 className="mb-4 text-lg font-medium text-gray-900">Cohorts</h3>
+        {cohortsLoading && <p className="text-gray-500">Loading…</p>}
+        {!cohortsLoading && (
+          <>
+            <form onSubmit={handleCreateCohort} className="mb-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="Cohort name"
+                value={newCohortName}
+                onChange={(e) => setNewCohortName(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2"
+              />
+              <button
+                type="submit"
+                disabled={newCohortCreating}
+                className="rounded-lg bg-primary px-4 py-2 text-white"
+              >
+                {newCohortCreating ? "Creating…" : "Create cohort"}
+              </button>
+            </form>
+            <div className="space-y-2">
+              {cohorts.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <span>{c.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => deleteCohort(c.id)}
+                    className="text-sm text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+      <section>
+        <h3 className="mb-4 text-lg font-medium text-gray-900">Enrollments</h3>
+        {enrollmentsLoading && <p className="text-gray-500">Loading…</p>}
+        <form onSubmit={handleAddEnrollment} className="mb-4 flex flex-wrap gap-2">
+          <input
+            type="email"
+            placeholder="Student email"
+            value={addEmail}
+            onChange={(e) => setAddEmail(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2"
+          />
+          <select
+            value={addCohortId}
+            onChange={(e) => setAddCohortId(e.target.value)}
+            className="rounded-lg border border-gray-300 px-3 py-2"
+          >
+            <option value="">No cohort</option>
+            {cohorts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={addingEnrollment}
+            className="rounded-lg bg-primary px-4 py-2 text-white"
+          >
+            {addingEnrollment ? "Adding…" : "Add student"}
+          </button>
+        </form>
+        {enrollmentError && (
+          <p className="mb-2 text-sm text-red-600">{enrollmentError}</p>
+        )}
+        <div className="space-y-2">
+          {enrollments.map((e) => (
+            <div
+              key={e.id}
+              className="flex items-center justify-between rounded-lg border p-3"
+            >
+              <span className="text-gray-600">{e.userId}</span>
+              <div className="flex items-center gap-2">
+                {e.cohortId && (
+                  <span className="text-sm text-gray-500">
+                    {cohorts.find((c) => c.id === e.cohortId)?.name ?? e.cohortId}
+                  </span>
+                )}
+                {issueCertification && (
+                  <button
+                    type="button"
+                    onClick={() => handleIssueCert(e.userId)}
+                    disabled={issuingFor === e.userId}
+                    className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
+                  >
+                    {issuingFor === e.userId ? "Issuing…" : "Issue certification"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeEnrollment(e.userId)}
+                  className="text-sm text-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </ContentPane>
+  );
+}
+
+function LiveLessonsTab({
+  lessons,
+  loading,
+  isTeacher,
+  createLiveLesson,
+  deleteLiveLesson,
+  classId,
+  userId,
+}: {
+  lessons: import("../hooks/useLiveLessons").LiveLessonWithId[];
+  loading: boolean;
+  isTeacher: boolean;
+  createLiveLesson: (data: {
+    classId: string;
+    ownerId: string;
+    title: string;
+    scheduledAt: number;
+    duration?: number;
+  }) => Promise<void>;
+  deleteLiveLesson: (id: string) => Promise<void>;
+  classId: string;
+  userId: string;
+}) {
+  const [newTitle, setNewTitle] = useState("");
+  const [newScheduledAt, setNewScheduledAt] = useState("");
+  const [newDuration, setNewDuration] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newScheduledAt || !userId) return;
+    setCreating(true);
+    try {
+      const scheduledAt = new Date(newScheduledAt).getTime();
+      const duration = newDuration ? parseInt(newDuration, 10) : undefined;
+      await createLiveLesson({
+        classId,
+        ownerId: userId,
+        title: newTitle.trim(),
+        scheduledAt,
+        duration,
+      });
+      setNewTitle("");
+      setNewScheduledAt("");
+      setNewDuration("");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <ContentPane title="Live lessons">
+      {isTeacher && (
+        <form onSubmit={handleCreate} className="mb-6 max-w-md space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Title
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Weekly Q&A"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Scheduled at
+            </label>
+            <input
+              type="datetime-local"
+              value={newScheduledAt}
+              onChange={(e) => setNewScheduledAt(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Duration (minutes, optional)
+            </label>
+            <input
+              type="number"
+              min={1}
+              placeholder="60"
+              value={newDuration}
+              onChange={(e) => setNewDuration(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded-xl bg-primary px-4 py-2 font-medium text-white"
+          >
+            {creating ? "Creating…" : "Create live lesson"}
+          </button>
+        </form>
+      )}
+      {loading && <p className="text-gray-500">Loading…</p>}
+      {!loading && lessons.length === 0 && (
+        <p className="text-gray-600">No live lessons scheduled.</p>
+      )}
+      {!loading && lessons.length > 0 && (
+        <div className="space-y-3">
+          {lessons.map((l) => (
+            <div
+              key={l.id}
+              className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
+            >
+              <div>
+                <span className="font-medium text-gray-900">{l.title}</span>
+                <p className="mt-1 text-sm text-gray-600">
+                  {formatUtcForDisplay(l.scheduledAt)}
+                  {l.duration ? ` • ${l.duration} min` : ""}
+                </p>
+              </div>
+              {isTeacher && (
+                <button
+                  type="button"
+                  onClick={() => deleteLiveLesson(l.id)}
+                  className="text-sm text-red-600 hover:underline"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

@@ -11,7 +11,6 @@ import { useModuleLessons } from "../hooks/useModuleLessons";
 import { useClassLessons } from "../hooks/useClassLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
-import { useClassLiveLessons } from "../hooks/useLiveLessons";
 import { useClassCohorts } from "../hooks/useCohorts";
 import { useClassEnrollments } from "../hooks/useEnrollments";
 import { useIssueCertification } from "../hooks/useCertifications";
@@ -51,7 +50,6 @@ type Tab =
   | "assignments"
   | "documents"
   | "quizzes"
-  | "live"
   | "roster"
   | "reports"
   | "playlists"
@@ -66,7 +64,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "assignments", label: "Assignments" },
   { id: "documents", label: "Documents" },
   { id: "quizzes", label: "Quizzes" },
-  { id: "live", label: "Live" },
   { id: "roster", label: "Roster" },
   { id: "reports", label: "Reports" },
   { id: "playlists", label: "Playlists" },
@@ -76,7 +73,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 const VALID_TABS: Tab[] = [
   "curriculum", "course", "modules", "lessons", "assignments", "documents", "quizzes",
-  "live", "roster", "reports", "playlists", "community", "portfolio",
+  "roster", "reports", "playlists", "community", "portfolio",
 ];
 
 export default function ClassDetail() {
@@ -132,12 +129,6 @@ export default function ClassDetail() {
   } = useClassAssignments(id);
 
   const { quizzes, loading: quizzesLoading } = useClassQuizzes(id);
-  const {
-    lessons: liveLessons,
-    loading: liveLoading,
-    createLiveLesson,
-    deleteLiveLesson,
-  } = useClassLiveLessons(id);
   const {
     cohorts,
     loading: cohortsLoading,
@@ -302,17 +293,6 @@ export default function ClassDetail() {
                   loading={quizzesLoading}
                   classId={id!}
                   isTeacher={isTeacherRoute}
-                />
-              )}
-              {activeTab === "live" && (
-                <LiveLessonsTab
-                  lessons={liveLessons}
-                  loading={liveLoading}
-                  isTeacher={isTeacherRoute}
-                  createLiveLesson={createLiveLesson}
-                  deleteLiveLesson={deleteLiveLesson}
-                  classId={id!}
-                  userId={user?.uid ?? ""}
                 />
               )}
               {activeTab === "reports" && isTeacherRoute && (
@@ -1122,140 +1102,6 @@ function RosterTab({
           ))}
         </div>
       </section>
-    </ContentPane>
-  );
-}
-
-function LiveLessonsTab({
-  lessons,
-  loading,
-  isTeacher,
-  createLiveLesson,
-  deleteLiveLesson,
-  classId,
-  userId,
-}: {
-  lessons: import("../hooks/useLiveLessons").LiveLessonWithId[];
-  loading: boolean;
-  isTeacher: boolean;
-  createLiveLesson: (data: {
-    classId: string;
-    ownerId: string;
-    title: string;
-    scheduledAt: number;
-    duration?: number;
-  }) => Promise<void>;
-  deleteLiveLesson: (id: string) => Promise<void>;
-  classId: string;
-  userId: string;
-}) {
-  const [newTitle, setNewTitle] = useState("");
-  const [newScheduledAt, setNewScheduledAt] = useState("");
-  const [newDuration, setNewDuration] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newScheduledAt || !userId) return;
-    setCreating(true);
-    try {
-      const scheduledAt = new Date(newScheduledAt).getTime();
-      const duration = newDuration ? parseInt(newDuration, 10) : undefined;
-      await createLiveLesson({
-        classId,
-        ownerId: userId,
-        title: newTitle.trim(),
-        scheduledAt,
-        duration,
-      });
-      setNewTitle("");
-      setNewScheduledAt("");
-      setNewDuration("");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <ContentPane title="Live lessons">
-      {isTeacher && (
-        <form onSubmit={handleCreate} className="mb-6 max-w-md space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Title
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Weekly Q&A"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Scheduled at
-            </label>
-            <input
-              type="datetime-local"
-              value={newScheduledAt}
-              onChange={(e) => setNewScheduledAt(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Duration (minutes, optional)
-            </label>
-            <input
-              type="number"
-              min={1}
-              placeholder="60"
-              value={newDuration}
-              onChange={(e) => setNewDuration(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded-xl bg-primary px-4 py-2 font-medium text-white"
-          >
-            {creating ? "Creating…" : "Create live lesson"}
-          </button>
-        </form>
-      )}
-      {loading && <p className="text-gray-500">Loading…</p>}
-      {!loading && lessons.length === 0 && (
-        <p className="text-gray-600">No live lessons scheduled.</p>
-      )}
-      {!loading && lessons.length > 0 && (
-        <div className="space-y-3">
-          {lessons.map((l) => (
-            <div
-              key={l.id}
-              className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
-            >
-              <div>
-                <span className="font-medium text-gray-900">{l.title}</span>
-                <p className="mt-1 text-sm text-gray-600">
-                  {formatUtcForDisplay(l.scheduledAt)}
-                  {l.duration ? ` • ${l.duration} min` : ""}
-                </p>
-              </div>
-              {isTeacher && (
-                <button
-                  type="button"
-                  onClick={() => deleteLiveLesson(l.id)}
-                  className="text-sm text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </ContentPane>
   );
 }

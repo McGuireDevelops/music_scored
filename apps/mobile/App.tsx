@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -154,6 +155,15 @@ export default function App() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.notifButton}
+          onPress={() => {}}
+          accessibilityLabel="Notifications"
+        >
+          <Ionicons name="notifications-outline" size={24} color="#1a1a1a" />
+        </TouchableOpacity>
+      </View>
       <Text style={styles.title}>
         {profile?.role === "teacher" ? "Teacher" : "Student"} Dashboard
       </Text>
@@ -196,6 +206,22 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     paddingTop: 60,
     paddingHorizontal: 24,
+  },
+  header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 56,
+    paddingBottom: 8,
+  },
+  notifButton: {
+    padding: 8,
   },
   title: {
     fontSize: 24,

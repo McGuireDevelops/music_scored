@@ -55,3 +55,9 @@ firebase deploy
 - **Quizzes**: structured answers only; no plain-string theory; multiple valid answers; partial credit.
 - **Rubrics**: teacher-defined; qualitative criteria; partial satisfaction; edit history.
 - **AI**: analyse-only; teacher-only visibility; editable before storage; stored in `analysisSnapshots`; never merged with feedback or grading.
+
+## Documentation
+
+- **[docs/COMPETITIVE_SANA_LEARN.md](./docs/COMPETITIVE_SANA_LEARN.md)** – Product positioning and feature comparison vs Sana Learn (human teacher–led differentiator).
+- **[docs/ROADMAP.md](./docs/ROADMAP.md)** – Priorities and differentiator to keep.
+- **[docs/course-hierarchy.md](./docs/course-hierarchy.md)** – Course creation hierarchy (class, module, lesson, assignments, quizzes).

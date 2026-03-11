@@ -8,6 +8,7 @@ import SignIn from "./pages/SignIn";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ClassDetail from "./pages/ClassDetail";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route index element={<Home />} />
             <Route path="signin" element={<SignIn />} />
             <Route path="student" element={<StudentDashboard />} />
+            <Route path="student/class/:id" element={<ClassDetail />} />
             <Route path="teacher" element={<TeacherDashboard />} />
+            <Route path="teacher/class/:id" element={<ClassDetail />} />
             <Route path="admin" element={<AdminDashboard />} />
           </Route>
         </Routes>

@@ -66,7 +66,17 @@ firebase deploy
 
 ---
 
-## 3. Local `.env` for web app
+## 3. First admin user
+
+To make yourself an admin, update your user doc in Firestore:
+
+1. Firebase Console → **Firestore** → **users** → your user ID
+2. Edit the `role` field: change `"student"` to `"admin"`
+3. Refresh the app – you'll see the Admin menu
+
+Admins can then promote other users to teacher/admin via the Admin dashboard.
+
+## 4. Local `.env` for web app
 
 Create `apps/web/.env` (copy from example below). This file is gitignored.
 
@@ -81,7 +91,7 @@ VITE_FIREBASE_APP_ID=
 
 ---
 
-## 4. Verify
+## 5. Verify
 
 - **Web:** Run `pnpm run dev:web` → open http://localhost:5173
 - **Vercel:** Push to `main` → auto-deploy

@@ -51,9 +51,12 @@ service cloud.firestore {
       return isStudent() && hasValidAccessGrant(classId) && hasFulfilledMandatoryRequirements(classId);
     }
 
-    // Users: own doc only
+    // Users: own doc only; admin can read all and update role
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // AccessGrants (top-level for listing): written by backend/payment; students read own

@@ -36,17 +36,11 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="mb-2 text-3xl font-semibold tracking-tight text-gray-900">
-        Learning Scores
-      </h1>
-      <p className="mb-8 text-gray-600">
-        Professional Film Music Learning Platform by McGuireDevelops
-      </p>
+    <>
       <p className="mb-6 text-gray-600">
         Sign in to access your classes and lessons.
       </p>
       <SignInForm embedded />
-    </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { SidebarNav } from "./dashboard/SidebarNav";
+import LoginLayout from "./LoginLayout";
 
 export default function Layout() {
   const { user, profile } = useAuth();
@@ -15,12 +16,12 @@ export default function Layout() {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  // Minimal layout for sign-in page or logged-out users (no nav/search)
+  // Branded login layout for sign-in page or logged-out users (no nav/search)
   if (isSignInPage || (isLoggedOut && location.pathname === "/")) {
     return (
-      <div className="min-h-screen bg-surface-light">
+      <LoginLayout>
         <Outlet />
-      </div>
+      </LoginLayout>
     );
   }
 

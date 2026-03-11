@@ -10,3 +10,4 @@ build/
 *.log
 .firebase/
 firebase-debug.log
+*.tsbuildinfo

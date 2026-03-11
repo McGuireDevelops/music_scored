@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -22,7 +22,7 @@ import { formatUtcForDisplay } from "../utils/timezone";
 import { lightenHex } from "../utils/color";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const UPCOMING_LIST_SIZE = 5;
@@ -40,12 +40,19 @@ function getChartColors(primaryColor: string | undefined, accentColor: string | 
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const location = useLocation();
   const { branding } = useTenant();
   const { features } = useTeacherSettings(user?.uid);
   const { classes, loading, error, setClasses } = useTeacherClasses(user?.uid);
   const { students, loading: studentsLoading } = useTeacherStudents(user?.uid);
   const { assignments, loading: assignmentsLoading } = useTeacherAssignments(user?.uid);
   const { upcomingLessons, loading: liveLessonsLoading } = useTeacherLiveLessons(user?.uid);
+
+  useEffect(() => {
+    if (location.hash === "#courses") {
+      document.getElementById("courses")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location.hash]);
 
   const { upcomingAssignments, upcomingDeadlinesCount } = useMemo(() => {
     const now = Date.now();
@@ -427,7 +434,7 @@ export default function TeacherDashboard() {
           </div>
         )}
         {!loading && classes.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div id="courses" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {classes.map((c) => (
               <Link
                 key={c.id}

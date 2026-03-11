@@ -11,8 +11,9 @@ const navItems: {
   featureKey?: keyof TeacherFeatureFlags;
 }[] = [
   { to: "/", label: "Dashboard" },
-  { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher/students", label: "Students", roles: ["teacher", "admin"] },
+  { to: "/#courses", label: "Courses", roles: ["teacher", "admin"] },
+  { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"], featureKey: "community" },
   { to: "/teacher/lessons", label: "Lessons", roles: ["teacher", "admin"], featureKey: "liveLessons" },
   { to: "/teacher/assignments", label: "Assignments", roles: ["teacher", "admin"], featureKey: "assignments" },
@@ -63,8 +64,19 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
     return true;
   });
 
-  const firstItems = visibleItems.filter((item) => item.label === "Dashboard" || item.label === "Students");
-  const restItems = visibleItems.filter((item) => item.label !== "Dashboard" && item.label !== "Students");
+  const firstItems = visibleItems.filter(
+    (item) => item.label === "Dashboard" || item.label === "Students" || (item.label === "Courses" && item.to === "/#courses")
+  );
+  const restItems = visibleItems.filter(
+    (item) => item.label !== "Dashboard" && item.label !== "Students" && !(item.label === "Courses" && item.to === "/#courses")
+  );
+
+  const isCurrent = (to: string) => {
+    if (to === "#") return false;
+    if (to === "/#courses") return location.pathname === "/" && location.hash === "#courses";
+    if (to === "/") return location.pathname === "/" && location.hash !== "#courses";
+    return location.pathname === to || location.pathname.startsWith(to.replace(/#.*/, "") + "/");
+  };
 
   return (
     <aside
@@ -83,17 +95,7 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
       </Link>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
         {firstItems.map((item) => (
-          <SidebarNavLink
-            key={item.label}
-            to={item.to}
-            current={
-              item.to !== "#"
-                ? location.pathname === item.to ||
-                  (item.to !== "/" &&
-                    location.pathname.startsWith(item.to + "/"))
-                : false
-            }
-          >
+          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
             {item.label}
           </SidebarNavLink>
         ))}
@@ -115,17 +117,7 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
           </>
         ) : null}
         {restItems.map((item) => (
-          <SidebarNavLink
-            key={item.label}
-            to={item.to}
-            current={
-              item.to !== "#"
-                ? location.pathname === item.to ||
-                  (item.to !== "/" &&
-                    location.pathname.startsWith(item.to + "/"))
-                : false
-            }
-          >
+          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
             {item.label}
           </SidebarNavLink>
         ))}

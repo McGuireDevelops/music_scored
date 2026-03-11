@@ -9,12 +9,14 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isSignInPage = location.pathname === "/signin";
+  const isLoggedOut = !user;
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  if (isSignInPage) {
+  // Minimal layout for sign-in page or logged-out users (no nav/search)
+  if (isSignInPage || (isLoggedOut && location.pathname === "/")) {
     return (
       <div className="min-h-screen bg-surface-light">
         <Outlet />

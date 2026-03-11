@@ -187,11 +187,13 @@ export default function TeacherDashboard() {
                   label="Total students"
                   value={students.length}
                   variant="default"
+                  onClick={() => document.getElementById("section-students")?.scrollIntoView({ behavior: "smooth" })}
                 />
                 <StatCard
                   label="Active courses"
                   value={classes.length}
                   variant="default"
+                  onClick={() => document.getElementById("section-courses")?.scrollIntoView({ behavior: "smooth" })}
                 />
                 {showAssignments && (
                   <StatCard
@@ -199,6 +201,7 @@ export default function TeacherDashboard() {
                     value={upcomingDeadlinesCount}
                     subtext="Assignments due in next 7 days"
                     variant={upcomingDeadlinesCount > 0 ? "warning" : "default"}
+                    onClick={() => document.getElementById("section-deadlines")?.scrollIntoView({ behavior: "smooth" })}
                   />
                 )}
                 {showLiveLessons && (
@@ -207,13 +210,14 @@ export default function TeacherDashboard() {
                     value={upcomingLessons.length}
                     subtext="Live lessons in next 7 days"
                     variant={upcomingLessons.length > 0 ? "warning" : "default"}
+                    onClick={() => document.getElementById("section-classes")?.scrollIntoView({ behavior: "smooth" })}
                   />
                 )}
               </div>
               {(showAssignments || showLiveLessons) && (
               <div className="grid gap-6 sm:grid-cols-2">
                 {showAssignments && (
-                  <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <div id="section-deadlines" className="rounded-card border border-gray-200 bg-white p-5 shadow-card scroll-mt-4">
                     <h3 className="mb-3 font-medium text-gray-900">Next deadlines</h3>
                     {upcomingAssignments.length === 0 ? (
                       <p className="text-sm text-gray-500">No assignments due in the next 7 days</p>
@@ -237,7 +241,7 @@ export default function TeacherDashboard() {
                   </div>
                 )}
                 {showLiveLessons && (
-                  <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <div id="section-classes" className="rounded-card border border-gray-200 bg-white p-5 shadow-card scroll-mt-4">
                     <h3 className="mb-3 font-medium text-gray-900">Next live lessons</h3>
                     {upcomingLessons.length === 0 ? (
                       <p className="text-sm text-gray-500">No live lessons in the next 7 days</p>
@@ -264,7 +268,7 @@ export default function TeacherDashboard() {
               )}
 
               <div className={`mt-6 grid gap-6 ${showAssignments ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
-                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                <div id="section-students" className="rounded-card border border-gray-200 bg-white p-5 shadow-card scroll-mt-4">
                   <h3 className="mb-4 font-medium text-gray-900">
                     Students per course
                   </h3>
@@ -416,14 +420,14 @@ export default function TeacherDashboard() {
           </p>
         )}
         {!loading && !error && classes.length === 0 && !showForm && (
-          <div className="rounded-card max-w-md border border-gray-200 bg-white p-8 shadow-card">
+          <div id="section-courses" className="rounded-card max-w-md border border-gray-200 bg-white p-8 shadow-card scroll-mt-4">
             <p className="text-gray-600">
               You don&apos;t have any classes yet. Create one to get started.
             </p>
           </div>
         )}
         {!loading && classes.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div id="section-courses" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 scroll-mt-4">
             {classes.map((c) => (
               <Link
                 key={c.id}

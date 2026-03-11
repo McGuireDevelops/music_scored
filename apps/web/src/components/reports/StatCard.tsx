@@ -3,6 +3,7 @@ interface StatCardProps {
   value: string | number;
   subtext?: string;
   variant?: "default" | "success" | "warning" | "error";
+  onClick?: () => void;
 }
 
 const variantStyles = {
@@ -17,10 +18,17 @@ export function StatCard({
   value,
   subtext,
   variant = "default",
+  onClick,
 }: StatCardProps) {
+  const className = `rounded-xl border p-5 shadow-card transition-shadow hover:shadow-cardHover ${variantStyles[variant]} ${onClick ? "cursor-pointer" : ""}`;
+
   return (
     <div
-      className={`rounded-xl border p-5 shadow-card transition-shadow hover:shadow-cardHover ${variantStyles[variant]}`}
+      className={className}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
     >
       <p className="text-sm font-medium uppercase tracking-wide text-gray-500">
         {label}

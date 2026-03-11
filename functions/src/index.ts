@@ -30,6 +30,10 @@ import { getTeacherStudents } from "./admin/getTeacherStudents";
 import { getTeacherCommunity } from "./admin/getTeacherCommunity";
 import { createZoomMeeting } from "./zoom/createZoomMeeting";
 import { updateLiveLessonStatus } from "./zoom/updateLiveLessonStatus";
+import { zoomRecordingWebhook } from "./zoom/zoomRecordingWebhook";
+import { shareRecording } from "./zoom/shareRecording";
+import { createBooking } from "./booking/createBooking";
+import { cancelBooking } from "./booking/cancelBooking";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -56,4 +60,8 @@ export {
   getTeacherCommunity,
   createZoomMeeting,
   updateLiveLessonStatus,
+  zoomRecordingWebhook,
+  shareRecording,
+  createBooking,
+  cancelBooking,
 };

@@ -75,6 +75,41 @@ export interface LessonPlacement {
   sourceClassId?: string;
 }
 
+export interface ZoomRecordingFile {
+  fileType: string;
+  downloadUrl: string;
+  playUrl?: string;
+  shareUrl?: string;
+  fileSize?: number;
+}
+
+export interface ZoomRecording {
+  recordingId: string;
+  meetingId: number;
+  recordingFiles: ZoomRecordingFile[];
+  transcriptUrl?: string;
+  duration?: number;
+  recordingStart?: number;
+  recordingEnd?: number;
+}
+
+export type RecordingShareTarget =
+  | { type: "class"; classId: string }
+  | { type: "cohort"; cohortId: string; classId: string }
+  | { type: "student"; studentId: string };
+
+export interface RecordingShare {
+  id: string;
+  sourceType: "liveLesson" | "booking";
+  sourceId: string;
+  classId?: string;
+  ownerId: string;
+  recording: ZoomRecording;
+  sharedWith: RecordingShareTarget[];
+  sharedAt: number;
+  updatedAt: number;
+}
+
 export type LiveLessonStatus = "scheduled" | "live" | "ended";
 
 export interface LiveLesson {
@@ -92,4 +127,6 @@ export interface LiveLesson {
   zoomJoinUrl?: string;
   zoomStartUrl?: string;
   status?: LiveLessonStatus;
+  isTimeManaged?: boolean;
+  recording?: ZoomRecording;
 }

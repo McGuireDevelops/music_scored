@@ -82,6 +82,7 @@ export interface TeacherFeatureFlags {
   certificates?: boolean;
   playlists?: boolean;
   paidClasses?: boolean;
+  officeHours?: boolean;
 }
 
 export interface TeacherSettings {

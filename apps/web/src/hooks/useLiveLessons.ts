@@ -9,7 +9,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db, functions, httpsCallable } from "../firebase";
-import type { LiveLessonStatus } from "@learning-scores/shared";
+import type { LiveLessonStatus, ZoomRecording } from "@learning-scores/shared";
 
 export interface LiveLessonWithId {
   id: string;
@@ -25,6 +25,8 @@ export interface LiveLessonWithId {
   zoomJoinUrl?: string;
   zoomStartUrl?: string;
   status?: LiveLessonStatus;
+  isTimeManaged?: boolean;
+  recording?: ZoomRecording;
 }
 
 export function useClassLiveLessons(classId: string | undefined) {
@@ -57,6 +59,7 @@ export function useClassLiveLessons(classId: string | undefined) {
     moduleId?: string;
     topics?: string[];
     ownerId: string;
+    isTimeManaged?: boolean;
   }) => {
     if (!classId) throw new Error("No class");
     const fn = httpsCallable<Record<string, unknown>, LiveLessonWithId>(

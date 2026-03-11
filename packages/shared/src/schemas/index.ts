@@ -6,3 +6,4 @@ export * from "./feedback.js";
 export * from "./quiz.js";
 export * from "./playlist.js";
 export * from "./certificate.js";
+export * from "./booking.js";

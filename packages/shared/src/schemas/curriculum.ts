@@ -70,4 +70,5 @@ export const liveLessonSchema = z.object({
   zoomJoinUrl: z.string().url().optional(),
   zoomStartUrl: z.string().url().optional(),
   status: liveLessonStatusSchema.optional(),
+  isTimeManaged: z.boolean().optional(),
 });

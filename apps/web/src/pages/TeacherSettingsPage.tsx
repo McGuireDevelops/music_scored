@@ -14,6 +14,7 @@ const FEATURE_LABELS: { key: keyof TeacherFeatureFlags; label: string }[] = [
   { key: "certificates", label: "Certificates" },
   { key: "playlists", label: "Playlists" },
   { key: "paidClasses", label: "Paid classes" },
+  { key: "officeHours", label: "Office hours (1-on-1 bookings)" },
 ];
 
 export default function TeacherSettingsPage() {
@@ -208,6 +209,16 @@ export default function TeacherSettingsPage() {
               </a>{" "}
               in the Zoom Marketplace and enter the credentials below.
             </p>
+            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              <p className="font-medium">Automatic recording &amp; transcription</p>
+              <p className="mt-1">
+                All Zoom meetings are automatically recorded to the cloud. To enable
+                automatic transcription, ensure{" "}
+                <strong>Audio transcript</strong> is turned on in your Zoom account
+                settings (Settings &rarr; Recording &rarr; Cloud recording &rarr;
+                Audio transcript). Cloud recording requires a Zoom Pro plan or higher.
+              </p>
+            </div>
             {settings?.zoomAccountId && settings?.zoomClientId && settings?.zoomClientSecret && (
               <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
                 <span>Zoom connected</span>

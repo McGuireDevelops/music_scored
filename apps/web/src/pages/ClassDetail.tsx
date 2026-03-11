@@ -14,7 +14,9 @@ import { ContentPane } from "../components/dashboard/ContentPane";
 import { ClassReportsTab } from "../components/reports/ClassReportsTab";
 import { PlaylistManager } from "../components/playlists/PlaylistManager";
 import { CourseBuilder } from "../components/CourseBuilder";
-import type { LiveLessonStatus } from "@learning-scores/shared";
+import type { LiveLessonStatus, RecordingShareTarget, ZoomRecording } from "@learning-scores/shared";
+import { ReviewDashboard } from "../components/live/ReviewDashboard";
+import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
 
 const VALID_TABS = [
   "builder", "quizzes", "live", "roster", "reports", "playlists", "community", "portfolio",
@@ -317,24 +319,241 @@ function StatusBadge({ status }: { status?: LiveLessonStatus }) {
   );
 }
 
+function RecordingBadge({ recording }: { recording: ZoomRecording }) {
+  const videoFile = recording.recordingFiles.find((f) => f.fileType === "MP4");
+  const audioFile = recording.recordingFiles.find((f) => f.fileType === "M4A");
+  const shareUrl = recording.recordingFiles[0]?.shareUrl;
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+        Recording Available
+      </span>
+      {(videoFile?.playUrl || shareUrl) && (
+        <a
+          href={videoFile?.playUrl || shareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-primary no-underline hover:underline"
+        >
+          Watch
+        </a>
+      )}
+      {audioFile?.playUrl && (
+        <a
+          href={audioFile.playUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-primary no-underline hover:underline"
+        >
+          Audio
+        </a>
+      )}
+      {recording.transcriptUrl && (
+        <a
+          href={recording.transcriptUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium text-primary no-underline hover:underline"
+        >
+          Transcript
+        </a>
+      )}
+    </div>
+  );
+}
+
+function ShareRecordingModal({
+  lessonId,
+  classId,
+  cohorts,
+  enrollments,
+  existingTargets,
+  onShare,
+  onClose,
+}: {
+  lessonId: string;
+  classId: string;
+  cohorts: { id: string; name: string }[];
+  enrollments: { userId: string; cohortId?: string }[];
+  existingTargets?: RecordingShareTarget[];
+  onShare: (targets: RecordingShareTarget[]) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [shareWithClass, setShareWithClass] = useState(
+    existingTargets?.some((t) => t.type === "class") ?? false
+  );
+  const [selectedCohorts, setSelectedCohorts] = useState<string[]>(
+    existingTargets?.filter((t) => t.type === "cohort").map((t) => (t as { cohortId: string }).cohortId) ?? []
+  );
+  const [selectedStudents, setSelectedStudents] = useState<string[]>(
+    existingTargets?.filter((t) => t.type === "student").map((t) => (t as { studentId: string }).studentId) ?? []
+  );
+  const [sharing, setSharing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSharing(true);
+    try {
+      const targets: RecordingShareTarget[] = [];
+      if (shareWithClass) {
+        targets.push({ type: "class", classId });
+      }
+      selectedCohorts.forEach((cohortId) => {
+        targets.push({ type: "cohort", cohortId, classId });
+      });
+      selectedStudents.forEach((studentId) => {
+        targets.push({ type: "student", studentId });
+      });
+      if (targets.length === 0) {
+        targets.push({ type: "class", classId });
+      }
+      await onShare(targets);
+      onClose();
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const toggleCohort = (id: string) => {
+    setSelectedCohorts((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+    if (shareWithClass) setShareWithClass(false);
+  };
+
+  const toggleStudent = (id: string) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+    if (shareWithClass) setShareWithClass(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Share Recording</h3>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            &times;
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={shareWithClass}
+                onChange={(e) => {
+                  setShareWithClass(e.target.checked);
+                  if (e.target.checked) {
+                    setSelectedCohorts([]);
+                    setSelectedStudents([]);
+                  }
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">Entire class</span>
+            </label>
+          </div>
+
+          {cohorts.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium text-gray-700">Cohorts</p>
+              <div className="space-y-2">
+                {cohorts.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-2.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCohorts.includes(c.id)}
+                      onChange={() => toggleCohort(c.id)}
+                      disabled={shareWithClass}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-gray-700">{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {enrollments.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium text-gray-700">Individual students</p>
+              <div className="max-h-40 space-y-2 overflow-y-auto">
+                {enrollments.map((e) => (
+                  <label
+                    key={e.userId}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-2.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStudents.includes(e.userId)}
+                      onChange={() => toggleStudent(e.userId)}
+                      disabled={shareWithClass}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-gray-700">{e.userId}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={sharing}
+              className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sharing ? "Sharing\u2026" : "Share Recording"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-gray-300 px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function LiveClassesTab({ classId, userId }: { classId: string; userId: string }) {
   const {
     lessons,
     loading,
     createLiveLesson,
+    updateLiveLesson,
     setLessonStatus,
     deleteLiveLesson,
   } = useClassLiveLessons(classId);
+
+  const { cohorts } = useClassCohorts(classId);
+  const { enrollments } = useClassEnrollments(classId);
+  const { shareRecording, getShareForSource } = useTeacherRecordingShares(userId, classId);
 
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [duration, setDuration] = useState("60");
+  const [isTimeManaged, setIsTimeManaged] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
+  const [reviewLessonId, setReviewLessonId] = useState<string | null>(null);
+  const [shareModalLessonId, setShareModalLessonId] = useState<string | null>(null);
 
   const sortedLessons = [...lessons].sort((a, b) => b.scheduledAt - a.scheduledAt);
+  const reviewLesson = reviewLessonId
+    ? lessons.find((l) => l.id === reviewLessonId)
+    : null;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,10 +566,12 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
         scheduledAt: new Date(scheduledAt).getTime(),
         duration: parseInt(duration, 10) || 60,
         ownerId: userId,
+        isTimeManaged,
       });
       setTitle("");
       setScheduledAt("");
       setDuration("60");
+      setIsTimeManaged(false);
       setShowForm(false);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create live class");
@@ -367,6 +588,23 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
       setStatusLoading(null);
     }
   };
+
+  const handleEnableReviewMode = async (lessonId: string) => {
+    await updateLiveLesson(lessonId, { isTimeManaged: true });
+    setReviewLessonId(lessonId);
+  };
+
+  if (reviewLesson) {
+    return (
+      <ReviewDashboard
+        classId={classId}
+        lessonTitle={reviewLesson.title}
+        durationMinutes={reviewLesson.duration ?? 60}
+        zoomStartUrl={reviewLesson.zoomStartUrl}
+        onExit={() => setReviewLessonId(null)}
+      />
+    );
+  }
 
   return (
     <ContentPane title="Live Classes">
@@ -432,6 +670,22 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
               />
             </div>
           </div>
+          <div className="mb-4">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isTimeManaged}
+                onChange={(e) => setIsTimeManaged(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Time-managed review session
+              </span>
+            </label>
+            <p className="ml-6.5 mt-1 text-xs text-gray-500">
+              Auto-divide class time equally among enrolled students with a per-student countdown timer.
+            </p>
+          </div>
           {createError && (
             <p className="mb-4 text-sm text-red-600">{createError}</p>
           )}
@@ -469,6 +723,11 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                   <div className="mb-1 flex items-center gap-2">
                     <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
                     <StatusBadge status={lesson.status} />
+                    {lesson.isTimeManaged && (
+                      <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                        Review
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-600">
                     {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
@@ -479,8 +738,38 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                       Zoom ID: {lesson.zoomMeetingId}
                     </p>
                   )}
+                  {lesson.recording && (
+                    <RecordingBadge recording={lesson.recording} />
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {lesson.status === "ended" && lesson.recording && (
+                    <button
+                      type="button"
+                      onClick={() => setShareModalLessonId(lesson.id)}
+                      className="rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+                    >
+                      {getShareForSource(lesson.id) ? "Update Share" : "Share Recording"}
+                    </button>
+                  )}
+                  {lesson.status === "live" && lesson.isTimeManaged && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewLessonId(lesson.id)}
+                      className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+                    >
+                      Open Review Dashboard
+                    </button>
+                  )}
+                  {lesson.status === "live" && !lesson.isTimeManaged && (
+                    <button
+                      type="button"
+                      onClick={() => handleEnableReviewMode(lesson.id)}
+                      className="rounded-lg border border-purple-300 px-3 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-50"
+                    >
+                      Enable Review Mode
+                    </button>
+                  )}
                   {lesson.status !== "ended" && lesson.zoomStartUrl && (
                     <a
                       href={lesson.zoomStartUrl}
@@ -526,21 +815,39 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
           ))}
         </div>
       )}
+
+      {shareModalLessonId && (
+        <ShareRecordingModal
+          lessonId={shareModalLessonId}
+          classId={classId}
+          cohorts={cohorts}
+          enrollments={enrollments}
+          existingTargets={getShareForSource(shareModalLessonId)?.sharedWith}
+          onShare={async (targets) => {
+            await shareRecording("liveLesson", shareModalLessonId, targets);
+          }}
+          onClose={() => setShareModalLessonId(null)}
+        />
+      )}
     </ContentPane>
   );
 }
 
 function StudentLiveClassesView({ classId }: { classId: string }) {
   const { lessons, loading } = useClassLiveLessons(classId);
+  const { shares, loading: sharesLoading, getShareForSource } = useStudentRecordingShares(classId);
   const now = Date.now();
   const upcoming = lessons
     .filter((l) => l.status !== "ended" && l.scheduledAt >= now - 2 * 60 * 60 * 1000)
     .sort((a, b) => a.scheduledAt - b.scheduledAt);
   const liveLessons = lessons.filter((l) => l.status === "live");
+  const endedWithRecordings = lessons
+    .filter((l) => l.status === "ended" && getShareForSource(l.id))
+    .sort((a, b) => b.scheduledAt - a.scheduledAt);
 
   return (
     <ContentPane title="Live Classes">
-      {loading && <p className="text-gray-500">Loading\u2026</p>}
+      {loading && <p className="text-gray-500">Loading&hellip;</p>}
 
       {!loading && liveLessons.length > 0 && (
         <div className="mb-6 space-y-3">
@@ -573,7 +880,7 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
         </div>
       )}
 
-      {!loading && upcoming.length === 0 && liveLessons.length === 0 && (
+      {!loading && upcoming.length === 0 && liveLessons.length === 0 && endedWithRecordings.length === 0 && (
         <p className="text-gray-600">No upcoming live classes for this course.</p>
       )}
 
@@ -599,6 +906,62 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                 </div>
               </div>
             ))}
+        </div>
+      )}
+
+      {!loading && !sharesLoading && endedWithRecordings.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <h3 className="font-medium text-gray-900">Recordings</h3>
+          {endedWithRecordings.map((lesson) => {
+            const share = getShareForSource(lesson.id);
+            if (!share) return null;
+            const recording = share.recording;
+            const videoFile = recording.recordingFiles.find((f) => f.fileType === "MP4");
+            const shareUrl = recording.recordingFiles[0]?.shareUrl;
+            return (
+              <div
+                key={lesson.id}
+                className="rounded-card border border-gray-200 bg-white p-4 shadow-card"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                        Recording
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {formatDate(lesson.scheduledAt)}
+                      {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(videoFile?.playUrl || shareUrl) && (
+                      <a
+                        href={videoFile?.playUrl || shareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white no-underline hover:bg-primary-dark"
+                      >
+                        Watch Recording
+                      </a>
+                    )}
+                    {recording.transcriptUrl && (
+                      <a
+                        href={recording.transcriptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 no-underline transition-colors hover:bg-gray-50"
+                      >
+                        Transcript
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </ContentPane>

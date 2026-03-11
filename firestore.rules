@@ -367,6 +367,33 @@ service cloud.firestore {
       allow write: if isTeacher() || isAdmin();
     }
 
+    // Teacher availability for 1-on-1 bookings: teacher writes own; authenticated users read (students browse slots)
+    match /teacherAvailability/{teacherId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == teacherId && isTeacher();
+      allow update, delete: if request.auth != null && request.auth.uid == teacherId && isTeacher();
+    }
+
+    // Bookings: teacher or student involved can read; writes only via Cloud Functions (Admin SDK)
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null && (
+        resource.data.teacherId == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
+    // Recording shares: teacher reads/writes own; students read shares targeting them or their class
+    match /recordingShares/{shareId} {
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid
+        || isAdmin()
+        || (isStudent() && resource.data.classId != null && hasValidAccessGrant(resource.data.classId))
+      );
+      allow create, update, delete: if false; // only via Cloud Functions (shareRecording)
+    }
+
     // Rate limits: backend-only (Cloud Functions Admin SDK); no client access
     match /rateLimits/{docId} {
       allow read, write: if false;

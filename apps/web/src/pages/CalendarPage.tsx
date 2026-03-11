@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTeacherLiveLessons } from "../hooks/useTeacherLiveLessons";
 import { useStudentLiveLessons } from "../hooks/useStudentLiveLessons";
 import { useTeacherSettings } from "../hooks/useTeacherSettings";
+import { useBookings } from "../hooks/useBookings";
 import type { LiveLessonStatus } from "@learning-scores/shared";
 
 function formatDate(ts: number) {
@@ -61,8 +62,13 @@ export default function CalendarPage() {
     error: studentError,
   } = useStudentLiveLessons(isStudent ? user?.uid : undefined);
 
+  const { upcoming: upcomingBookings, loading: bookingsLoading } = useBookings(
+    user?.uid,
+    profile?.role as "student" | "teacher" | "admin" | undefined
+  );
+
   const showLive = features.liveLessons !== false;
-  const loading = isTeacherOrAdmin ? teacherLoading : studentLoading;
+  const loading = (isTeacherOrAdmin ? teacherLoading : studentLoading) || bookingsLoading;
   const error = isTeacherOrAdmin ? teacherError : studentError;
 
   return (
@@ -72,7 +78,7 @@ export default function CalendarPage() {
           Calendar
         </h1>
         <p className="mb-8 text-gray-600">
-          Upcoming live lessons and events
+          Upcoming live lessons, 1-on-1 sessions, and events
         </p>
 
         {error && (
@@ -246,6 +252,63 @@ export default function CalendarPage() {
               </ul>
             )}
           </>
+        )}
+
+        {/* 1-on-1 Bookings (both teacher and student) */}
+        {!loading && upcomingBookings.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              Upcoming 1-on-1 Sessions
+            </h2>
+            <ul className="space-y-3">
+              {upcomingBookings.map((b) => (
+                <li
+                  key={b.id}
+                  className="rounded-card border border-gray-200 bg-white p-4 shadow-card"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        1-on-1 with {b.teacherName ?? b.studentName ?? "—"}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {formatDate(b.startAt)} at {formatTime(b.startAt)}–
+                        {formatTime(b.endAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isTeacherOrAdmin && b.zoomStartUrl && (
+                        <a
+                          href={b.zoomStartUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white no-underline hover:bg-primary-dark"
+                        >
+                          Start Zoom
+                        </a>
+                      )}
+                      {isStudent && (b.zoomJoinUrl || b.fallbackMeetingLink) && (
+                        <a
+                          href={b.zoomJoinUrl ?? b.fallbackMeetingLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white no-underline hover:bg-primary-dark"
+                        >
+                          Join Meeting
+                        </a>
+                      )}
+                      <Link
+                        to={isTeacherOrAdmin ? "/teacher/availability" : "/student/bookings"}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 no-underline hover:bg-gray-50"
+                      >
+                        {isTeacherOrAdmin ? "Manage" : "View"}
+                      </Link>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {/* Guest / no role */}

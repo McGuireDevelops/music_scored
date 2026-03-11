@@ -32,6 +32,8 @@ import TeacherQuizzesPage from "./pages/TeacherQuizzesPage";
 import TeacherSettingsPage from "./pages/TeacherSettingsPage";
 import CurriculumBuilderPage from "./pages/CurriculumBuilder";
 import CalendarPage from "./pages/CalendarPage";
+import TeacherAvailabilityPage from "./pages/TeacherAvailabilityPage";
+import BookingPage from "./pages/BookingPage";
 import HelpPage from "./pages/HelpPage";
 import "./index.css";
 
@@ -53,6 +55,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="student/class/:classId/community" element={<CommunityPage />} />
               <Route path="student/portfolio" element={<PortfolioPage />} />
               <Route path="student/certifications" element={<CertificationsPage />} />
+              <Route path="student/bookings" element={<BookingPage />} />
               <Route path="purchase/:classId" element={<PurchaseClassPage />} />
               <Route path="teacher" element={<Navigate to="/" replace />} />
               <Route path="teacher/students" element={<TeacherStudentsPage />} />
@@ -62,7 +65,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="teacher/quizzes" element={<TeacherQuizzesPage />} />
               <Route path="teacher/profile" element={<TeacherProfileEdit />} />
               <Route path="teacher/settings" element={<TeacherSettingsPage />} />
+              <Route path="teacher/availability" element={<TeacherAvailabilityPage />} />
               <Route path="teacher/curricula" element={<CurriculumBuilderPage />} />
+              <Route path="teacher/library" element={<PortfolioPage />} />
               <Route path="teacher/class/:id" element={<ClassDetail />} />
               <Route path="teacher/class/:classId/rubrics" element={<RubricBuilder />} />
               <Route path="teacher/class/:classId/certificate" element={<CertificateDesigner />} />

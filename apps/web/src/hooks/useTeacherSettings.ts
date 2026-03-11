@@ -11,6 +11,7 @@ const DEFAULT_FEATURES: TeacherFeatureFlags = {
   certificates: true,
   playlists: true,
   paidClasses: true,
+  officeHours: true,
 };
 
 function mergeWithDefaults(features: TeacherFeatureFlags | undefined): TeacherFeatureFlags {

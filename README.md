@@ -27,6 +27,10 @@ Production-grade learning platform for film music education. React 18 (web) + Re
    - Access is determined only by AccessGrant + role (no payment in access path).
    - For students to see a class, create a document at `users/{uid}/accessGrants/{classId}` with `validFrom`, `validTo` (UTC ms). Use Admin SDK or a Cloud Function triggered by payment.
 
+## Deploy
+
+See **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for Vercel and Firebase setup.
+
 ## Build & run
 
 ```bash

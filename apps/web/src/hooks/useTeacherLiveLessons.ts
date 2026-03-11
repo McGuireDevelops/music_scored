@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, getDoc, query, where, doc } from "firebase/firestore";
 import { db } from "../firebase";
+import type { LiveLessonStatus } from "@learning-scores/shared";
 
 export interface LiveLessonWithId {
   id: string;
@@ -10,6 +11,10 @@ export interface LiveLessonWithId {
   scheduledAt: number;
   duration?: number;
   cohortIds?: string[];
+  zoomMeetingId?: number;
+  zoomJoinUrl?: string;
+  zoomStartUrl?: string;
+  status?: LiveLessonStatus;
 }
 
 export interface TeacherLiveLessonEnriched extends LiveLessonWithId {
@@ -91,7 +96,9 @@ export function useTeacherLiveLessons(teacherId: string | undefined) {
     const now = Date.now();
     const upcomingThreshold = now + SEVEN_DAYS_MS;
     return lessons.filter(
-      (l) => l.scheduledAt >= now && l.scheduledAt <= upcomingThreshold
+      (l) =>
+        l.status === "live" ||
+        (l.scheduledAt >= now && l.scheduledAt <= upcomingThreshold && l.status !== "ended")
     );
   }, [lessons]);
 

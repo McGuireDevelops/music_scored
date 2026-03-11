@@ -41,6 +41,9 @@ export function useTeacherSettings(uid: string | undefined) {
           features: mergeWithDefaults(data.features),
           stripeConnectAccountId: data.stripeConnectAccountId,
           stripeOnboardingComplete: data.stripeOnboardingComplete ?? false,
+          zoomAccountId: data.zoomAccountId,
+          zoomClientId: data.zoomClientId,
+          zoomClientSecret: data.zoomClientSecret,
           updatedAt: data.updatedAt ?? Date.now(),
         });
       })
@@ -87,13 +90,14 @@ export function useTeacherSettings(uid: string | undefined) {
   const updateSettings = useCallback(
     async (updates: Partial<Omit<TeacherSettings, "userId">>) => {
       if (!uid) return;
-      const payload = {
-        userId: uid,
+      const payload: TeacherSettings = {
         ...settings,
-        ...updates,
+        userId: uid,
+        features: settings?.features ?? DEFAULT_FEATURES,
         updatedAt: Date.now(),
+        ...updates,
       };
-      await updateTeacherSettingsFn(payload);
+      await updateTeacherSettingsFn(payload as unknown as Record<string, unknown>);
       setSettings((prev) => (prev ? { ...prev, ...payload } : payload));
     },
     [uid, settings]
@@ -109,6 +113,9 @@ export function useTeacherSettings(uid: string | undefined) {
       features: mergeWithDefaults(data.features),
       stripeConnectAccountId: data.stripeConnectAccountId,
       stripeOnboardingComplete: data.stripeOnboardingComplete ?? false,
+      zoomAccountId: data.zoomAccountId,
+      zoomClientId: data.zoomClientId,
+      zoomClientSecret: data.zoomClientSecret,
       updatedAt: data.updatedAt ?? Date.now(),
     });
   }, [uid]);

@@ -28,8 +28,12 @@ export interface Cohort {
 
 export interface Curriculum {
   id: string;
-  classId: string;
-  name?: string;
+  teacherId: string;
+  name: string;
+  description?: string;
+  courseIds: string[];
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface Module {
@@ -71,6 +75,8 @@ export interface LessonPlacement {
   sourceClassId?: string;
 }
 
+export type LiveLessonStatus = "scheduled" | "live" | "ended";
+
 export interface LiveLesson {
   id: string;
   classId: string;
@@ -82,4 +88,8 @@ export interface LiveLesson {
   cohortIds?: string[];
   topics?: string[];
   chapterMarkers?: Array<{ timecode: number; label: string }>;
+  zoomMeetingId?: number;
+  zoomJoinUrl?: string;
+  zoomStartUrl?: string;
+  status?: LiveLessonStatus;
 }

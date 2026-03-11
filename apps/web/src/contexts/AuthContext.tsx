@@ -24,6 +24,7 @@ interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
+  photoURL: string | null;
   role: UserRole;
 }
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? null,
             displayName: firebaseUser.displayName ?? data.displayName ?? null,
+            photoURL: firebaseUser.photoURL ?? data.photoURL ?? null,
             role: (data.role as UserRole) ?? "student",
           });
         } else {
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? null,
             displayName: firebaseUser.displayName ?? null,
+            photoURL: firebaseUser.photoURL ?? null,
             role: "student",
           };
           await setDoc(doc(db, "users", firebaseUser.uid), {

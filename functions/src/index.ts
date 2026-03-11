@@ -28,6 +28,8 @@ import {
 } from "./admin/getTeacherLessons";
 import { getTeacherStudents } from "./admin/getTeacherStudents";
 import { getTeacherCommunity } from "./admin/getTeacherCommunity";
+import { createZoomMeeting } from "./zoom/createZoomMeeting";
+import { updateLiveLessonStatus } from "./zoom/updateLiveLessonStatus";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -52,4 +54,6 @@ export {
   deleteTeacherLesson,
   getTeacherStudents,
   getTeacherCommunity,
+  createZoomMeeting,
+  updateLiveLessonStatus,
 };

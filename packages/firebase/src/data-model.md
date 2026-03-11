@@ -2,7 +2,7 @@
 
 ## Course Creation Hierarchy
 
-- **Curriculum** – Optional grouping under a Class (Course). Collection `curricula` has `classId`; modules may have `curriculumId`. (Alternative: Curriculum can be top-level with `curriculumId` on classes; current model keeps Class as top-level.)
+- **Curriculum** – Teacher-owned grouping of courses. Collection `curricula` has `teacherId`, `name`, `description?`, `courseIds[]`. Teachers link multiple courses into an overarching curriculum via the Curriculum Builder.
 - **Course** – Implemented as **Class** (`classes` collection). Course = Class in code (`classId` everywhere).
 - **Module** – Collection of lessons and assignments; belongs to a class, optionally to a curriculum.
 - **Lesson** – Collection of text, video, images, documents; belongs to a module. `mediaRefs` support audio, video, score, image, and document (PDF/Word).
@@ -20,7 +20,7 @@
 | `classes` | teacherId, name, description, isPublic?, isPaid?, certificateTemplateId?, completionCriteria? | Teacher-owned (Course = Class) |
 | `classes/{id}/cohorts` | name, limit? | Subcollection |
 | `classes/{id}/enrollments` | userId, cohortId?, status | Subcollection; enrollmentId = userId |
-| `curricula` | classId | Linked to class; optional grouping |
+| `curricula` | teacherId, name, description?, courseIds[], createdAt, updatedAt | Teacher-owned; links multiple courses (classes) into overarching curriculum |
 | `modules` | classId, curriculumId?, name, releaseMode, releasedAt?, order?, documentRefs? | documentRefs: PDF/Word/video/audio/image for module-level |
 | `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version? | mediaRefs: video/audio/score/image/document (PDF/Word) |
 | `lessons/{id}/lessonVersions` | version, title, content, summary, mediaRefs, timestamp | Version history when teacher saves as new version |

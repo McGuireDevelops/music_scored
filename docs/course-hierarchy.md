@@ -4,9 +4,9 @@ This document describes the content hierarchy used for course creation in Learni
 
 ## Hierarchy
 
-- **Curriculum** – A collection of courses. In the current implementation, curricula are optional and belong to a Class (see Terminology).
-- **Course** – A collection of modules. Implemented as **Class** in the app (`classes` collection, `classId` in references).
-- **Module** – A collection of lessons and assignments. Modules belong to a course (class) and optionally to a curriculum.
+- **Curriculum** – An overarching grouping of courses. Owned by a teacher (`teacherId`), with an ordered list of linked course IDs (`courseIds`). Managed via the Curriculum Builder at `/teacher/curricula`.
+- **Course** – A collection of modules. Implemented as **Class** in the app (`classes` collection, `classId` in references). Built via the Course Builder (single-page inline experience).
+- **Module** – A collection of lessons, assignments, quizzes, and documents. Modules belong to a course (class).
 - **Lesson** – A collection of text, video, images, and documents. Lessons belong to a module.
 - **Assignment** – A task based on a lesson or module. Assignments belong to a module and may optionally reference a specific lesson.
 

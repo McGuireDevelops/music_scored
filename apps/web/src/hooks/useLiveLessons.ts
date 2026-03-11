@@ -4,12 +4,12 @@ import {
   getDocs,
   query,
   where,
-  addDoc,
   updateDoc,
   deleteDoc,
   doc,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, functions, httpsCallable } from "../firebase";
+import type { LiveLessonStatus } from "@learning-scores/shared";
 
 export interface LiveLessonWithId {
   id: string;
@@ -19,6 +19,12 @@ export interface LiveLessonWithId {
   scheduledAt: number;
   duration?: number;
   cohortIds?: string[];
+  moduleId?: string;
+  topics?: string[];
+  zoomMeetingId?: number;
+  zoomJoinUrl?: string;
+  zoomStartUrl?: string;
+  status?: LiveLessonStatus;
 }
 
 export function useClassLiveLessons(classId: string | undefined) {
@@ -43,14 +49,24 @@ export function useClassLiveLessons(classId: string | undefined) {
       .finally(() => setLoading(false));
   }, [classId]);
 
-  const createLiveLesson = async (data: Omit<LiveLessonWithId, "id">) => {
+  const createLiveLesson = async (data: {
+    title: string;
+    scheduledAt: number;
+    duration?: number;
+    cohortIds?: string[];
+    moduleId?: string;
+    topics?: string[];
+    ownerId: string;
+  }) => {
     if (!classId) throw new Error("No class");
-    const ref = await addDoc(collection(db, "liveLessons"), {
-      ...data,
-      classId,
-      createdAt: Date.now(),
-    });
-    setLessons((prev) => [...prev, { id: ref.id, ...data } as LiveLessonWithId]);
+    const fn = httpsCallable<Record<string, unknown>, LiveLessonWithId>(
+      functions,
+      "createZoomMeeting"
+    );
+    const res = await fn({ ...data, classId });
+    const created = res.data;
+    setLessons((prev) => [...prev, created]);
+    return created;
   };
 
   const updateLiveLesson = async (
@@ -60,6 +76,17 @@ export function useClassLiveLessons(classId: string | undefined) {
     await updateDoc(doc(db, "liveLessons", lessonId), data);
     setLessons((prev) =>
       prev.map((l) => (l.id === lessonId ? { ...l, ...data } : l))
+    );
+  };
+
+  const setLessonStatus = async (lessonId: string, status: LiveLessonStatus) => {
+    const fn = httpsCallable<
+      { lessonId: string; status: string },
+      { success: boolean; status: string }
+    >(functions, "updateLiveLessonStatus");
+    await fn({ lessonId, status });
+    setLessons((prev) =>
+      prev.map((l) => (l.id === lessonId ? { ...l, status } : l))
     );
   };
 
@@ -73,6 +100,7 @@ export function useClassLiveLessons(classId: string | undefined) {
     loading,
     createLiveLesson,
     updateLiveLesson,
+    setLessonStatus,
     deleteLiveLesson,
   };
 }

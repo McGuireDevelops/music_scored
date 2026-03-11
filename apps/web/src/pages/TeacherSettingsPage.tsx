@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
@@ -21,11 +21,48 @@ export default function TeacherSettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Only fetch teacherSettings when user has teacher/admin role (Firestore rules require this)
   const canAccessSettings = profile?.role === "teacher" || profile?.role === "admin";
-  const { settings, features, loading, updateFeatures, refetch } = useTeacherSettings(canAccessSettings ? user?.uid : undefined);
+  const { settings, features, loading, updateFeatures, updateSettings, refetch } = useTeacherSettings(canAccessSettings ? user?.uid : undefined);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
+
+  const [zoomAccountId, setZoomAccountId] = useState("");
+  const [zoomClientId, setZoomClientId] = useState("");
+  const [zoomClientSecret, setZoomClientSecret] = useState("");
+  const [zoomSaving, setZoomSaving] = useState(false);
+  const [zoomSaved, setZoomSaved] = useState(false);
+  const [zoomError, setZoomError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (settings) {
+      setZoomAccountId(settings.zoomAccountId ?? "");
+      setZoomClientId(settings.zoomClientId ?? "");
+      setZoomClientSecret("");
+    }
+  }, [settings]);
+
+  const handleSaveZoom = useCallback(async () => {
+    setZoomSaving(true);
+    setZoomSaved(false);
+    setZoomError(null);
+    try {
+      const updates: Record<string, unknown> = {
+        zoomAccountId: zoomAccountId.trim() || undefined,
+        zoomClientId: zoomClientId.trim() || undefined,
+      };
+      if (zoomClientSecret.trim()) {
+        updates.zoomClientSecret = zoomClientSecret.trim();
+      }
+      await updateSettings(updates);
+      setZoomSaved(true);
+      setZoomClientSecret("");
+    } catch (err) {
+      setZoomError(err instanceof Error ? err.message : "Failed to save Zoom settings");
+    } finally {
+      setZoomSaving(false);
+    }
+  }, [zoomAccountId, zoomClientId, zoomClientSecret, updateSettings]);
 
   useEffect(() => {
     const stripe = searchParams.get("stripe");
@@ -156,11 +193,81 @@ export default function TeacherSettingsPage() {
           </section>
           <section className="max-w-2xl rounded-card border border-gray-200 bg-white p-6 shadow-card">
             <h3 className="mb-4 text-lg font-medium text-gray-900">
-              Other settings
+              Zoom Integration
             </h3>
-            <p className="text-sm text-gray-600">
-              Additional preferences (coming soon).
+            <p className="mb-4 text-sm text-gray-600">
+              Connect your Zoom account to automatically create meetings for
+              live classes. Create a{" "}
+              <a
+                href="https://marketplace.zoom.us/docs/guides/build/server-to-server-oauth-app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Server-to-Server OAuth app
+              </a>{" "}
+              in the Zoom Marketplace and enter the credentials below.
             </p>
+            {settings?.zoomAccountId && settings?.zoomClientId && settings?.zoomClientSecret && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+                <span>Zoom connected</span>
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="zoom-account-id" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Account ID
+                </label>
+                <input
+                  id="zoom-account-id"
+                  type="text"
+                  value={zoomAccountId}
+                  onChange={(e) => setZoomAccountId(e.target.value)}
+                  placeholder="Your Zoom Account ID"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label htmlFor="zoom-client-id" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Client ID
+                </label>
+                <input
+                  id="zoom-client-id"
+                  type="text"
+                  value={zoomClientId}
+                  onChange={(e) => setZoomClientId(e.target.value)}
+                  placeholder="Your Zoom Client ID"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label htmlFor="zoom-client-secret" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Client Secret
+                </label>
+                <input
+                  id="zoom-client-secret"
+                  type="password"
+                  value={zoomClientSecret}
+                  onChange={(e) => setZoomClientSecret(e.target.value)}
+                  placeholder={settings?.zoomClientSecret ? "••••••••  (leave blank to keep current)" : "Your Zoom Client Secret"}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveZoom}
+                disabled={zoomSaving}
+                className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zoomSaving ? "Saving\u2026" : "Save Zoom Settings"}
+              </button>
+              {zoomSaved && (
+                <p className="text-sm text-green-600">Zoom settings saved.</p>
+              )}
+              {zoomError && (
+                <p className="text-sm text-red-600">{zoomError}</p>
+              )}
+            </div>
           </section>
         </div>
       </div>

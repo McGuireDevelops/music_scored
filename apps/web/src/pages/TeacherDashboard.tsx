@@ -255,16 +255,36 @@ export default function TeacherDashboard() {
                     ) : (
                       <ul className="space-y-2">
                         {upcomingLessons.slice(0, UPCOMING_LIST_SIZE).map((l) => (
-                          <li key={l.id}>
-                            <Link
-                              to={`/teacher/class/${l.classId}`}
-                              className="block text-sm text-primary hover:underline"
-                            >
-                              {l.title}
-                            </Link>
-                            <p className="text-xs text-gray-500">
-                              {l.className} · {formatUtcForDisplay(l.scheduledAt)}
-                            </p>
+                          <li key={l.id} className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  to={`/teacher/class/${l.classId}?tab=live`}
+                                  className="block text-sm text-primary hover:underline"
+                                >
+                                  {l.title}
+                                </Link>
+                                {l.status === "live" && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                                    LIVE
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                {l.className} &middot; {formatUtcForDisplay(l.scheduledAt)}
+                              </p>
+                            </div>
+                            {l.zoomStartUrl && l.status !== "ended" && (
+                              <a
+                                href={l.zoomStartUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white no-underline hover:bg-primary-dark"
+                              >
+                                {l.status === "live" ? "Rejoin" : "Start"}
+                              </a>
+                            )}
                           </li>
                         ))}
                       </ul>

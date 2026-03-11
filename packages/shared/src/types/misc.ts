@@ -89,5 +89,8 @@ export interface TeacherSettings {
   features: TeacherFeatureFlags;
   stripeConnectAccountId?: string;
   stripeOnboardingComplete?: boolean;
+  zoomAccountId?: string;
+  zoomClientId?: string;
+  zoomClientSecret?: string;
   updatedAt: number;
 }

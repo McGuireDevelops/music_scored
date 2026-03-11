@@ -11,6 +11,13 @@ export const classSchema = z.object({
   isPaid: z.boolean().optional(),
 });
 
+export const curriculumSchema = z.object({
+  teacherId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  courseIds: z.array(z.string()),
+});
+
 export const cohortSchema = z.object({
   classId: z.string().min(1),
   name: z.string().min(1),
@@ -40,6 +47,8 @@ export const lessonSchema = z.object({
   version: z.number().optional(),
 });
 
+export const liveLessonStatusSchema = z.enum(["scheduled", "live", "ended"]);
+
 export const liveLessonSchema = z.object({
   classId: z.string().min(1),
   moduleId: z.string().optional(),
@@ -57,4 +66,8 @@ export const liveLessonSchema = z.object({
       })
     )
     .optional(),
+  zoomMeetingId: z.number().optional(),
+  zoomJoinUrl: z.string().url().optional(),
+  zoomStartUrl: z.string().url().optional(),
+  status: liveLessonStatusSchema.optional(),
 });

@@ -15,26 +15,19 @@ const navItems: {
   { to: "/teacher/students", label: "Students", roles: ["teacher", "admin"] },
   { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"], featureKey: "community" },
   { to: "/student", label: "Courses", roles: ["student", "admin"] },
-  { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
-  { to: "/teacher/settings", label: "Settings", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
   { to: "/student/portfolio", label: "Library", roles: ["student", "teacher", "admin"] },
   { to: "/student/todo", label: "To-do", roles: ["student", "admin"] },
   { to: "/student/certifications", label: "Certifications", roles: ["student", "teacher", "admin"] },
 ];
 
-// Teacher: Curriculum section (class-based tabs when on a class or have a class)
 const curriculumTabs: { id: string; label: string }[] = [
-  { id: "course", label: "Courses" },
-  { id: "modules", label: "Modules" },
-  { id: "lessons", label: "Lessons" },
-  { id: "assignments", label: "Assignments" },
+  { id: "builder", label: "Course Builder" },
   { id: "roster", label: "Roster" },
 ];
 
-// Teacher: Documents section (mix of global routes and class tabs)
 const documentsNavItems: {
-  to: string;
+  to?: string;
   label: string;
   tab?: string;
   roles?: string[];
@@ -45,16 +38,11 @@ const documentsNavItems: {
   { to: "/student/portfolio", label: "Library", roles: ["teacher", "admin"] },
   { tab: "live", label: "Live", roles: ["teacher", "admin"], featureKey: "liveLessons" },
   { to: "/student/certifications", label: "Certifications", roles: ["teacher", "admin"] },
+  { to: "/teacher/curricula", label: "Curricula", roles: ["teacher", "admin"] },
 ];
 
-// Class detail page still uses full tab set for in-page tabs
 export const classNavTabs: { id: string; label: string }[] = [
-  { id: "curriculum", label: "Curriculum" },
-  { id: "course", label: "Course" },
-  { id: "modules", label: "Modules" },
-  { id: "lessons", label: "Lessons" },
-  { id: "assignments", label: "Assignments" },
-  { id: "documents", label: "Documents" },
+  { id: "builder", label: "Course Builder" },
   { id: "quizzes", label: "Quizzes" },
   { id: "live", label: "Live" },
   { id: "roster", label: "Roster" },
@@ -65,10 +53,12 @@ export const classNavTabs: { id: string; label: string }[] = [
 
 interface SidebarNavProps {
   open?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function SidebarNav({ open = false }: SidebarNavProps) {
-  const { user, profile, signOut } = useAuth();
+export function SidebarNav({ open = false, collapsed = false, onToggleCollapse }: SidebarNavProps) {
+  const { user, profile } = useAuth();
   const location = useLocation();
   const { branding } = useTenant();
   const isTeacherOrAdmin = profile?.role === "teacher" || profile?.role === "admin";
@@ -78,12 +68,11 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
   const classMatch = location.pathname.match(/^\/(teacher|student)\/class\/([^/]+)/);
   const classBasePath = classMatch ? `/${classMatch[1]}/class/${classMatch[2]}` : null;
   const firstClassId = teacherClasses[0]?.id;
-  // Show Course block: on a class page, or for teachers (dashboard with first class, or with no class so the 12 tabs still appear)
   const courseSectionBasePath =
     classBasePath ??
     (isTeacherOrAdmin ? (firstClassId ? `/teacher/class/${firstClassId}` : "/teacher") : null);
   const currentTab = courseSectionBasePath
-    ? new URLSearchParams(location.search).get("tab") || "curriculum"
+    ? new URLSearchParams(location.search).get("tab") || "builder"
     : null;
   const showCourseSection = !!courseSectionBasePath;
 
@@ -95,7 +84,6 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
     return true;
   });
 
-  // Teacher top: Dashboard, Students, Community
   const teacherTopItems = [
     { to: "/", label: "Dashboard" },
     ...(isTeacherOrAdmin ? [{ to: "/teacher/students", label: "Students" as const }] : []),
@@ -104,7 +92,6 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
       : []),
   ].filter(Boolean) as { to: string; label: string }[];
 
-  // Documents section: filter by role and feature flags
   const visibleDocumentsItems = documentsNavItems
     .filter((item) => {
       if (!item.roles?.includes(profile?.role ?? "")) return false;
@@ -116,15 +103,8 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
       to: item.to ?? (item.tab && courseSectionBasePath ? `${courseSectionBasePath}?tab=${item.tab}` : "#"),
     }));
 
-  // Bottom section: Calendar, My Profile, Settings, Help (and Admin for admin)
   const bottomItems: { to: string; label: string }[] = [
     { to: "/calendar", label: "Calendar" },
-    ...(isTeacherOrAdmin
-      ? [
-          { to: "/teacher/profile", label: "My profile" },
-          { to: "/teacher/settings", label: "Settings" },
-        ]
-      : []),
     { to: "/help", label: "Help" },
     ...(profile?.role === "admin" ? [{ to: "/admin", label: "Admin" }] : []),
   ];
@@ -142,43 +122,53 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-50 flex h-screen w-60 flex-col bg-sidebar transition-transform duration-200 ${
+      className={`fixed left-0 top-0 z-50 flex h-screen flex-col bg-sidebar transition-all duration-200 ${
+        collapsed ? "lg:w-16" : "lg:w-60"
+      } w-60 ${
         open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}
     >
       <Link
         to="/"
-        className="flex items-center gap-3 px-5 py-5 text-lg font-semibold text-white no-underline transition-colors hover:text-white"
+        className={`flex items-center gap-3 py-5 text-lg font-semibold text-white no-underline transition-colors hover:text-white ${
+          collapsed ? "justify-center px-2" : "px-5"
+        }`}
+        title={collapsed ? (branding.tenantName ?? "Learning Scores") : undefined}
       >
         {branding.logoUrl ? (
-          <img src={branding.logoUrl} alt="" className="h-8 w-auto object-contain" />
+          <img src={branding.logoUrl} alt="" className="h-8 w-auto shrink-0 object-contain" />
         ) : null}
-        {branding.tenantName ?? "Learning Scores"}
+        {!collapsed && (branding.tenantName ?? "Learning Scores")}
+        {collapsed && !branding.logoUrl && (
+          <span className="text-base font-bold">{(branding.tenantName ?? "LS").charAt(0)}</span>
+        )}
       </Link>
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
-        {/* Top: Dashboard, Students, Community (teacher) or Dashboard, Courses (student) */}
+      <nav className={`flex flex-1 flex-col gap-0.5 overflow-y-auto py-2 ${collapsed ? "px-1.5" : "px-3"}`}>
         {teacherTopItems.map((item) => (
-          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
+          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)} collapsed={collapsed}>
             {item.label}
           </SidebarNavLink>
         ))}
         {!isTeacherOrAdmin && (
-          <SidebarNavLink to="/student" current={isCurrent("/student")}>
+          <SidebarNavLink to="/student" current={isCurrent("/student")} collapsed={collapsed}>
             Courses
           </SidebarNavLink>
         )}
 
-        {/* Teacher: Curriculum section */}
         {isTeacherOrAdmin && showCourseSection ? (
           <>
-            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
-              Curriculum
-            </div>
+            {!collapsed && (
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+                Course
+              </div>
+            )}
+            {collapsed && <div className="my-1 border-t border-white/10" />}
             {curriculumTabs.map((tab) => (
               <SidebarNavLink
                 key={tab.id}
                 to={`${courseSectionBasePath}?tab=${tab.id}`}
                 current={classBasePath ? currentTab === tab.id : false}
+                collapsed={collapsed}
               >
                 {tab.label}
               </SidebarNavLink>
@@ -186,17 +176,20 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
           </>
         ) : null}
 
-        {/* Teacher: Documents section */}
         {isTeacherOrAdmin && visibleDocumentsItems.length > 0 ? (
           <>
-            <div className="mt-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
-              Documents
-            </div>
+            {!collapsed && (
+              <div className="mt-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+                Manage
+              </div>
+            )}
+            {collapsed && <div className="my-1 border-t border-white/10" />}
             {visibleDocumentsItems.map((item) => (
               <SidebarNavLink
                 key={item.label}
                 to={item.to}
                 current={isCurrent(item.to, item.tab)}
+                collapsed={collapsed}
               >
                 {item.label}
               </SidebarNavLink>
@@ -204,7 +197,6 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
           </>
         ) : null}
 
-        {/* Student: Library, To-do, Certifications */}
         {!isTeacherOrAdmin &&
           visibleItems
             .filter(
@@ -212,47 +204,56 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
                 item.label === "Library" || item.label === "To-do" || item.label === "Certifications"
             )
             .map((item) => (
-              <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
+              <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)} collapsed={collapsed}>
                 {item.label}
               </SidebarNavLink>
             ))}
 
         <div className="my-2 border-t border-white/10" />
 
-        {/* Bottom: Calendar, My Profile, Settings, Help */}
         {bottomItems.map((item) => (
-          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
+          <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)} collapsed={collapsed}>
             {item.label}
           </SidebarNavLink>
         ))}
       </nav>
-      {permissionError && (
+      {permissionError && !collapsed && (
         <div className="mx-3 mb-2 rounded-lg bg-amber-500/20 px-3 py-2 text-xs text-amber-100">
           {permissionError}
         </div>
       )}
-      <div className="border-t border-white/10 px-4 py-4">
-        {user ? (
-          <div className="flex flex-col gap-2">
-            <span className="truncate text-sm text-white/70">
-              {profile?.displayName || profile?.email || "Signed in"}
-            </span>
-            <button
-              onClick={signOut}
-              className="w-full rounded-lg bg-white/10 px-4 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-white/20"
-            >
-              Sign out
-            </button>
-          </div>
-        ) : (
+      {!user && (
+        <div className={`border-t border-white/10 ${collapsed ? "px-1.5 py-3" : "px-4 py-4"}`}>
           <Link
             to="/signin"
-            className="block rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-white no-underline transition-colors hover:bg-primary-dark"
+            className={`block rounded-lg bg-primary text-center font-medium text-white no-underline transition-colors hover:bg-primary-dark ${
+              collapsed ? "p-2 text-xs" : "px-4 py-2 text-sm"
+            }`}
+            title={collapsed ? "Sign in" : undefined}
           >
-            Sign in
+            {collapsed ? (
+              <svg className="mx-auto h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+            ) : (
+              "Sign in"
+            )}
           </Link>
-        )}
-      </div>
+        </div>
+      )}
+      {/* Desktop collapse toggle at the very bottom */}
+      {onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="hidden border-t border-white/10 p-3 text-white/50 transition-colors hover:bg-white/10 hover:text-white lg:block"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg className={`mx-auto h-4 w-4 transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
     </aside>
   );
 }
@@ -260,13 +261,20 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
 function SidebarNavLink({
   to,
   current,
+  collapsed = false,
   children,
 }: {
   to: string;
   current: boolean;
+  collapsed?: boolean;
   children: React.ReactNode;
 }) {
-  const className = `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+  const label = typeof children === "string" ? children : "";
+  const initial = label.charAt(0).toUpperCase();
+
+  const className = `group relative flex items-center rounded-lg text-sm font-medium transition-colors ${
+    collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"
+  } ${
     current
       ? "bg-sidebar-active text-white"
       : "text-white/70 hover:bg-sidebar-hover hover:text-white"
@@ -277,16 +285,27 @@ function SidebarNavLink({
       {current && (
         <span className="absolute left-0 h-6 w-0.5 rounded-r bg-primary" />
       )}
-      {children}
+      {collapsed ? (
+        <span className="flex h-6 w-6 items-center justify-center text-xs font-semibold">
+          {initial}
+        </span>
+      ) : (
+        children
+      )}
+      {collapsed && (
+        <span className="pointer-events-none absolute left-full z-[60] ml-2 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+          {label}
+        </span>
+      )}
     </>
   );
 
   if (to === "#") {
-    return <span className={`relative flex ${className}`}>{content}</span>;
+    return <span className={className} title={collapsed ? label : undefined}>{content}</span>;
   }
 
   return (
-    <Link to={to} className={`relative flex ${className} no-underline`}>
+    <Link to={to} className={`${className} no-underline`} title={collapsed ? label : undefined}>
       {content}
     </Link>
   );

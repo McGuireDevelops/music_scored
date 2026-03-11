@@ -1,49 +1,23 @@
 import { useParams, useLocation, Link, useSearchParams } from "react-router-dom";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useEffect } from "react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
-import { useClassModules } from "../hooks/useClassModules";
-import { useModuleLessons } from "../hooks/useModuleLessons";
-import { useClassLessons } from "../hooks/useClassLessons";
-import { useClassAssignments } from "../hooks/useClassAssignments";
-import { useClassQuizzes } from "../hooks/useQuizzes";
 import { useClassCohorts } from "../hooks/useCohorts";
 import { useClassEnrollments } from "../hooks/useEnrollments";
 import { useIssueCertification } from "../hooks/useCertifications";
 import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
-import { LessonViewer } from "../components/LessonViewer";
-import { LessonBuilderForm } from "../components/LessonBuilderForm";
-import { DocumentViewer } from "../components/media/DocumentViewer";
-import { SortableLessonItem } from "../components/SortableLessonItem";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { ModuleNav } from "../components/dashboard/ModuleNav";
+import { useClassLiveLessons } from "../hooks/useLiveLessons";
 import { ContentPane } from "../components/dashboard/ContentPane";
-import { formatUtcForDisplay } from "../utils/timezone";
-import type { ModuleWithId } from "../hooks/useClassModules";
-import type { LessonWithId } from "../hooks/useModuleLessons";
 import { ClassReportsTab } from "../components/reports/ClassReportsTab";
 import { PlaylistManager } from "../components/playlists/PlaylistManager";
+import { CourseBuilder } from "../components/CourseBuilder";
+import type { LiveLessonStatus } from "@learning-scores/shared";
 
 const VALID_TABS = [
-  "curriculum", "course", "modules", "lessons", "assignments", "documents", "quizzes",
-  "roster", "reports", "playlists", "community", "portfolio",
+  "builder", "quizzes", "live", "roster", "reports", "playlists", "community", "portfolio",
 ] as const;
 type Tab = (typeof VALID_TABS)[number];
 
@@ -55,41 +29,11 @@ export default function ClassDetail() {
   const isTeacherRoute = pathname.startsWith("/teacher");
   const tabParam = searchParams.get("tab");
   const activeTab: Tab =
-    tabParam && VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "curriculum";
+    tabParam && VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "builder";
   const [className, setClassName] = useState<string | null>(null);
   const [classDescription, setClassDescription] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [selectedModule, setSelectedModule] = useState<ModuleWithId | null>(null);
-  const [selectedLesson, setSelectedLesson] = useState<LessonWithId | null>(null);
-  const [moduleForNewLesson, setModuleForNewLesson] = useState<string | null>(null);
-  const {
-    modules,
-    loading: modulesLoading,
-    error: modulesError,
-    createModule,
-    updateModule,
-    deleteModule,
-  } = useClassModules(id);
 
-  const {
-    lessons,
-    loading: lessonsLoading,
-    createLesson,
-    updateLesson,
-    reorderLessons,
-  } = useModuleLessons(id, selectedModule?.id);
-  const {
-    createLesson: createLessonInModule,
-    updateLesson: updateLessonInModule,
-  } = useModuleLessons(id, moduleForNewLesson ?? undefined);
-
-  const {
-    assignments,
-    loading: assignmentsLoading,
-    createAssignment,
-  } = useClassAssignments(id);
-
-  const { quizzes, loading: quizzesLoading } = useClassQuizzes(id);
   const {
     cohorts,
     loading: cohortsLoading,
@@ -112,7 +56,7 @@ export default function ClassDetail() {
 
   useEffect(() => {
     if (!id) return;
-    if (!searchParams.get("tab")) setSearchParams({ tab: "curriculum" }, { replace: true });
+    if (!searchParams.get("tab")) setSearchParams({ tab: "builder" }, { replace: true });
   }, [id, searchParams, setSearchParams]);
 
   useEffect(() => {
@@ -135,8 +79,6 @@ export default function ClassDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const { lessons: allLessons, loading: allLessonsLoading, refetch: refetchClassLessons } = useClassLessons(id);
-
   return (
     <ProtectedRoute requiredRole={isTeacherRoute ? "teacher" : "student"}>
       <div>
@@ -144,9 +86,9 @@ export default function ClassDetail() {
           to={isTeacherRoute ? "/" : "/student"}
           className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
         >
-          ← Back to dashboard
+          &larr; Back to dashboard
         </Link>
-        {loading && <p className="text-gray-500">Loading…</p>}
+        {loading && <p className="text-gray-500">Loading&hellip;</p>}
         {!loading && !className && (
           <p className="text-gray-600">Class not found.</p>
         )}
@@ -174,80 +116,25 @@ export default function ClassDetail() {
               )}
             </div>
             <div className="mt-6">
-              {activeTab === "curriculum" && (
-                <CurriculumOverviewTab
-                  className={className ?? ""}
-                  modulesCount={modules.length}
-                  lessonsCount={allLessons.length}
-                  assignmentsCount={assignments.length}
-                  quizzesCount={quizzes.length}
-                  loading={modulesLoading || allLessonsLoading}
-                />
-              )}
-              {activeTab === "course" && (
-                <CourseTab
-                  className={className ?? ""}
+              {activeTab === "builder" && isTeacherRoute && (
+                <CourseBuilder
+                  classId={id!}
+                  className={className}
                   classDescription={classDescription}
-                />
-              )}
-              {activeTab === "modules" && (
-                <ModulesTab
-                  isTeacher={isTeacherRoute}
-                  modules={modules}
-                  modulesLoading={modulesLoading}
-                  modulesError={modulesError}
-                  selectedModule={selectedModule}
-                  setSelectedModule={setSelectedModule}
-                  createModule={createModule}
-                  updateModule={updateModule}
-                  deleteModule={deleteModule}
-                  classId={id!}
                   userId={user?.uid ?? ""}
                 />
               )}
-              {activeTab === "lessons" && (
-                <LessonsTab
-                  isTeacher={isTeacherRoute}
-                  modules={modules}
-                  allLessons={allLessons}
-                  loading={allLessonsLoading}
-                  moduleForNewLesson={moduleForNewLesson}
-                  setModuleForNewLesson={setModuleForNewLesson}
-                  createLesson={createLessonInModule}
-                  updateLesson={updateLessonInModule}
-                  refetchLessons={refetchClassLessons}
-                  classId={id!}
-                  userId={user?.uid ?? ""}
-                />
+              {activeTab === "builder" && !isTeacherRoute && (
+                <StudentCourseView classId={id!} />
               )}
-              {activeTab === "assignments" && (
-                <AssignmentsTab
-                  assignments={assignments}
-                  loading={assignmentsLoading}
-                  classId={id!}
-                  isTeacher={isTeacherRoute}
-                  createAssignment={createAssignment}
-                  userId={user?.uid ?? ""}
-                  modules={modules}
-                />
+              {activeTab === "live" && isTeacherRoute && (
+                <LiveClassesTab classId={id!} userId={user?.uid ?? ""} />
               )}
-              {activeTab === "documents" && (
-                <DocumentsTab
-                  modules={modules}
-                  lessons={allLessons}
-                  loading={allLessonsLoading}
-                  isTeacher={isTeacherRoute}
-                  updateModule={updateModule}
-                  classId={id!}
-                />
+              {activeTab === "live" && !isTeacherRoute && (
+                <StudentLiveClassesView classId={id!} />
               )}
-              {activeTab === "quizzes" && (
-                <QuizzesTab
-                  quizzes={quizzes}
-                  loading={quizzesLoading}
-                  classId={id!}
-                  isTeacher={isTeacherRoute}
-                />
+              {activeTab === "quizzes" && isTeacherRoute && (
+                <QuizzesTab classId={id!} />
               )}
               {activeTab === "reports" && isTeacherRoute && (
                 <ClassReportsTab classId={id!} />
@@ -289,7 +176,7 @@ export default function ClassDetail() {
                     to={`/${isTeacherRoute ? "teacher" : "student"}/class/${id}/community`}
                     className="font-medium text-primary no-underline hover:underline"
                   >
-                    View discussions →
+                    View discussions &rarr;
                   </Link>
                 </div>
               )}
@@ -299,7 +186,7 @@ export default function ClassDetail() {
                     to="/student/portfolio"
                     className="font-medium text-primary no-underline hover:underline"
                   >
-                    Manage portfolio →
+                    Manage portfolio &rarr;
                   </Link>
                 </div>
               )}
@@ -311,549 +198,407 @@ export default function ClassDetail() {
   );
 }
 
-const MODULE_DOCUMENT_ACCEPT =
-  "application/pdf,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx";
+function StudentCourseView({ classId }: { classId: string }) {
+  const { lessons, loading: liveLessonsLoading } = useClassLiveLessons(classId);
+  const liveNow = lessons.filter((l) => l.status === "live");
 
-function ModuleDocumentsBlock({
-  module,
-  classId,
-  updateModule,
-}: {
-  module: ModuleWithId;
-  classId: string;
-  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const documentRefs = module.documentRefs ?? [];
+  return (
+    <ContentPane title="Course">
+      {!liveLessonsLoading && liveNow.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {liveNow.map((l) => (
+            <div
+              key={l.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-300 bg-red-50 p-4"
+            >
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  LIVE
+                </span>
+                <span className="font-medium text-gray-900">{l.title}</span>
+              </div>
+              {l.zoomJoinUrl && (
+                <a
+                  href={l.zoomJoinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-red-600 px-5 py-2 text-sm font-medium text-white no-underline hover:bg-red-700"
+                >
+                  Join Live Class
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-gray-600">
+        Browse course content using the sidebar navigation.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link
+          to={`/student/class/${classId}?tab=live`}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-primary no-underline hover:bg-gray-50"
+        >
+          Live Classes
+        </Link>
+        <Link
+          to={`/student/class/${classId}?tab=playlists`}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-primary no-underline hover:bg-gray-50"
+        >
+          Playlists
+        </Link>
+        <Link
+          to={`/student/class/${classId}?tab=community`}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-primary no-underline hover:bg-gray-50"
+        >
+          Community
+        </Link>
+        <Link
+          to={`/student/class/${classId}?tab=portfolio`}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-primary no-underline hover:bg-gray-50"
+        >
+          Portfolio
+        </Link>
+      </div>
+    </ContentPane>
+  );
+}
 
-  const handleAddDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !classId || !module.id) return;
-    e.target.value = "";
-    setUploading(true);
+function QuizzesTab({ classId }: { classId: string }) {
+  return (
+    <ContentPane title="Quizzes">
+      <Link
+        to={`/teacher/class/${classId}/quizzes`}
+        className="inline-block font-medium text-primary no-underline hover:underline"
+      >
+        Manage quizzes &rarr;
+      </Link>
+    </ContentPane>
+  );
+}
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function StatusBadge({ status }: { status?: LiveLessonStatus }) {
+  if (status === "live") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+        LIVE
+      </span>
+    );
+  }
+  if (status === "ended") {
+    return (
+      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+        Ended
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+      Scheduled
+    </span>
+  );
+}
+
+function LiveClassesTab({ classId, userId }: { classId: string; userId: string }) {
+  const {
+    lessons,
+    loading,
+    createLiveLesson,
+    setLessonStatus,
+    deleteLiveLesson,
+  } = useClassLiveLessons(classId);
+
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [duration, setDuration] = useState("60");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState<string | null>(null);
+
+  const sortedLessons = [...lessons].sort((a, b) => b.scheduledAt - a.scheduledAt);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !scheduledAt) return;
+    setCreating(true);
+    setCreateError(null);
     try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const path = `classes/${classId}/modules/${module.id}/documents/${Date.now()}-${safeName}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      await updateModule(module.id, {
-        documentRefs: [
-          ...documentRefs,
-          { type: "document" as const, resourceId: path },
-        ],
+      await createLiveLesson({
+        title: title.trim(),
+        scheduledAt: new Date(scheduledAt).getTime(),
+        duration: parseInt(duration, 10) || 60,
+        ownerId: userId,
       });
+      setTitle("");
+      setScheduledAt("");
+      setDuration("60");
+      setShowForm(false);
     } catch (err) {
-      console.error(err);
+      setCreateError(err instanceof Error ? err.message : "Failed to create live class");
     } finally {
-      setUploading(false);
+      setCreating(false);
     }
   };
 
-  const handleRemoveDocument = async (index: number) => {
-    const next = documentRefs.filter((_, i) => i !== index);
-    await updateModule(module.id, { documentRefs: next });
+  const handleStatusChange = async (lessonId: string, status: LiveLessonStatus) => {
+    setStatusLoading(lessonId);
+    try {
+      await setLessonStatus(lessonId, status);
+    } finally {
+      setStatusLoading(null);
+    }
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-gray-700">Module documents:</span>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={MODULE_DOCUMENT_ACCEPT}
-        className="hidden"
-        onChange={handleAddDocument}
-      />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-      >
-        {uploading ? "Uploading…" : "Add PDF or Word"}
-      </button>
-      {documentRefs.map((r, i) => (
-        <span
-          key={i}
-          className="inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+    <ContentPane title="Live Classes">
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-gray-600">
+          Schedule and manage live Zoom classes for this course.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowForm(!showForm)}
+          className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
         >
-          {r.resourceId.split("/").pop()}
-          <button
-            type="button"
-            onClick={() => handleRemoveDocument(i)}
-            className="text-red-600 hover:underline"
-            aria-label="Remove"
-          >
-            ✕
-          </button>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function CurriculumOverviewTab({
-  className,
-  modulesCount,
-  lessonsCount,
-  assignmentsCount,
-  quizzesCount,
-  loading,
-}: {
-  className: string;
-  modulesCount: number;
-  lessonsCount: number;
-  assignmentsCount: number;
-  quizzesCount: number;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <ContentPane title="Curriculum">
-        <p className="text-gray-500">Loading…</p>
-      </ContentPane>
-    );
-  }
-  return (
-    <ContentPane title="Curriculum">
-      <p className="mb-4 text-gray-700">
-        This course contains the following structure. Use the tabs to manage each part.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-2xl font-semibold text-gray-900">{modulesCount}</div>
-          <div className="text-sm text-gray-600">Modules</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-2xl font-semibold text-gray-900">{lessonsCount}</div>
-          <div className="text-sm text-gray-600">Lessons</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-2xl font-semibold text-gray-900">{assignmentsCount}</div>
-          <div className="text-sm text-gray-600">Assignments</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-2xl font-semibold text-gray-900">{quizzesCount}</div>
-          <div className="text-sm text-gray-600">Quizzes</div>
-        </div>
+          {showForm ? "Cancel" : "Schedule class"}
+        </button>
       </div>
-      <p className="mt-4 text-sm text-gray-500">
-        Hierarchy: Curriculum → Course ({className}) → Modules → Lessons & Assignments. Documents can be attached to lessons or modules; quizzes can be assigned to a lesson, module, or the whole course.
-      </p>
-    </ContentPane>
-  );
-}
 
-function CourseTab({
-  className,
-  classDescription,
-}: {
-  className: string;
-  classDescription?: string;
-}) {
-  return (
-    <ContentPane title="Course">
-      <div className="max-w-2xl space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Course name</label>
-          <p className="mt-1 text-gray-900">{className}</p>
-        </div>
-        {classDescription != null && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <p className="mt-1 whitespace-pre-wrap text-gray-700">{classDescription}</p>
-          </div>
-        )}
-        {classDescription == null && (
-          <p className="text-sm text-gray-500">No description set for this course.</p>
-        )}
-      </div>
-    </ContentPane>
-  );
-}
-
-function ModulesTab({
-  isTeacher,
-  modules,
-  modulesLoading,
-  modulesError,
-  selectedModule,
-  setSelectedModule,
-  createModule,
-  updateModule,
-  deleteModule,
-  classId,
-  userId,
-}: {
-  isTeacher: boolean;
-  modules: ModuleWithId[];
-  modulesLoading: boolean;
-  modulesError: string | null;
-  selectedModule: ModuleWithId | null;
-  setSelectedModule: (m: ModuleWithId | null) => void;
-  createModule: (data: { name: string; releaseMode: "time-released" | "mastery-based" }) => Promise<void>;
-  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
-  deleteModule: (id: string) => Promise<void>;
-  classId: string;
-  userId: string;
-}) {
-  const handleCreateModule = async (name: string) => {
-    await createModule({ name, releaseMode: "time-released" });
-  };
-
-  return (
-    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:items-start lg:gap-8">
-      <ModuleNav
-        modules={modules}
-        loading={modulesLoading}
-        selectedModule={selectedModule}
-        onSelectModule={setSelectedModule}
-        isTeacher={isTeacher}
-        onCreateModule={handleCreateModule}
-        onDeleteModule={deleteModule}
-      />
-      <ContentPane
-        breadcrumb={selectedModule ? "Module details" : undefined}
-        title={selectedModule?.name}
-      >
-        {!selectedModule && (
-          <p className="text-gray-600">Select a module to view its details and documents.</p>
-        )}
-        {selectedModule && (
-          <>
-            {modulesError && (
-              <p className="mb-4 text-sm text-red-600">{modulesError}</p>
-            )}
-            <div className="mb-4">
-              <span className="text-sm text-gray-600">Release mode: </span>
-              <span className="text-sm font-medium text-gray-900">{selectedModule.releaseMode}</span>
-            </div>
-            <ModuleDocumentsBlock
-              module={selectedModule}
-              classId={classId}
-              updateModule={updateModule}
+      {showForm && (
+        <form
+          onSubmit={handleCreate}
+          className="mb-6 rounded-card border border-gray-200 bg-white p-6 shadow-card"
+        >
+          <h3 className="mb-4 font-semibold text-gray-900">Schedule a live class</h3>
+          <div className="mb-4">
+            <label htmlFor="live-title" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Title
+            </label>
+            <input
+              id="live-title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Week 3: Orchestration Review"
+              required
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            {selectedModule.documentRefs && selectedModule.documentRefs.length > 0 && (
-              <div className="mt-6">
-                <h4 className="mb-2 text-sm font-medium text-gray-700">Module documents</h4>
-                <div className="flex flex-wrap gap-3">
-                  {selectedModule.documentRefs.map((docRef, i) => (
-                    <DocumentViewer key={i} mediaRef={docRef} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </ContentPane>
-    </div>
-  );
-}
-
-function LessonsTab({
-  isTeacher,
-  modules,
-  allLessons,
-  loading,
-  moduleForNewLesson,
-  setModuleForNewLesson,
-  createLesson,
-  updateLesson,
-  refetchLessons,
-  classId,
-  userId,
-}: {
-  isTeacher: boolean;
-  modules: ModuleWithId[];
-  allLessons: LessonWithId[];
-  loading: boolean;
-  moduleForNewLesson: string | null;
-  setModuleForNewLesson: (id: string | null) => void;
-  createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
-  updateLesson: (lessonId: string, data: Partial<LessonWithId>, updateMode?: "push" | "newVersion") => Promise<void>;
-  refetchLessons: () => Promise<void>;
-  classId: string;
-  userId: string;
-}) {
-  const [editingLesson, setEditingLesson] = useState<LessonWithId | null>(null);
-  const [viewingLesson, setViewingLesson] = useState<LessonWithId | null>(null);
-  const lessonsByModule = modules.map((m) => ({
-    module: m,
-    lessons: allLessons.filter((l) => l.moduleId === m.id),
-  }));
-
-  const handleSaveLesson = async (
-    data: {
-      title: string;
-      content?: string;
-      summary?: string;
-      type: "video" | "audio" | "score" | "text";
-      mediaRefs?: import("@learning-scores/shared").MediaReference[];
-    },
-    updateMode?: "push" | "newVersion"
-  ) => {
-    if (!moduleForNewLesson || !userId) return;
-    const order = allLessons.filter((l) => l.moduleId === moduleForNewLesson).length;
-    await createLesson(
-      {
-        classId,
-        moduleId: moduleForNewLesson,
-        ownerId: userId,
-        title: data.title,
-        type: data.type,
-        content: data.content,
-        summary: data.summary,
-        mediaRefs: data.mediaRefs,
-        order,
-      },
-      userId
-    );
-    setModuleForNewLesson(null);
-    await refetchLessons();
-  };
-
-  const handleSaveEdit = async (
-    data: {
-      title: string;
-      content?: string;
-      summary?: string;
-      type: "video" | "audio" | "score" | "text";
-      mediaRefs?: import("@learning-scores/shared").MediaReference[];
-    },
-    updateMode?: "push" | "newVersion"
-  ) => {
-    if (!editingLesson || !userId) return;
-    await updateLesson(editingLesson.id, {
-      title: data.title,
-      content: data.content,
-      summary: data.summary,
-      type: data.type,
-      mediaRefs: data.mediaRefs,
-    }, updateMode);
-    setEditingLesson(null);
-    await refetchLessons();
-  };
-
-  if (loading) {
-    return (
-      <ContentPane title="Lessons">
-        <p className="text-gray-500">Loading lessons…</p>
-      </ContentPane>
-    );
-  }
-
-  return (
-    <ContentPane title="Lessons">
-      {isTeacher && (
-        <div className="mb-6">
-          {!moduleForNewLesson ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Add lesson to module:</span>
-              <select
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setModuleForNewLesson(v || null);
-                }}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900"
-              >
-                <option value="">Select module</option>
-                {modules.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
-              <h4 className="mb-4 font-semibold text-gray-900">New lesson</h4>
-              <LessonBuilderForm
-                lesson={null}
-                classId={classId}
-                moduleId={moduleForNewLesson}
-                userId={userId}
-                onSave={handleSaveLesson}
-                onCancel={() => setModuleForNewLesson(null)}
-                isNew={true}
+          </div>
+          <div className="mb-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="live-date" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Date &amp; Time
+              </label>
+              <input
+                id="live-date"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                required
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
+            <div>
+              <label htmlFor="live-duration" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Duration (minutes)
+              </label>
+              <input
+                id="live-duration"
+                type="number"
+                min="15"
+                max="480"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+          {createError && (
+            <p className="mb-4 text-sm text-red-600">{createError}</p>
           )}
-        </div>
-      )}
-      <div className="space-y-6">
-        {lessonsByModule.map(({ module: m, lessons: modLessons }) => (
-          <div key={m.id}>
-            <h3 className="mb-2 text-sm font-semibold text-gray-900">{m.name}</h3>
-            {modLessons.length === 0 ? (
-              <p className="text-sm text-gray-500">No lessons</p>
-            ) : (
-              <ul className="space-y-2">
-                {modLessons.map((l) => (
-                  <li key={l.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
-                    <span className="font-medium text-gray-900">{l.title}</span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingLesson(l)}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewingLesson(l)}
-                        className="text-sm text-gray-600 hover:underline"
-                      >
-                        View
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
-      {viewingLesson && (
-        <div className="mt-6 border-t border-gray-200 pt-6">
           <button
-            type="button"
-            onClick={() => setViewingLesson(null)}
-            className="mb-4 text-sm text-gray-600 hover:underline"
+            type="submit"
+            disabled={creating}
+            className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
-            ← Back to list
+            {creating ? "Creating\u2026" : "Create & generate Zoom link"}
           </button>
-          <LessonViewer lesson={viewingLesson} />
+        </form>
+      )}
+
+      {loading && <p className="text-gray-500">Loading live classes\u2026</p>}
+
+      {!loading && sortedLessons.length === 0 && (
+        <div className="rounded-card border border-gray-200 bg-white p-8 shadow-card">
+          <p className="text-gray-600">
+            No live classes scheduled yet. Click &ldquo;Schedule class&rdquo; to create one.
+          </p>
         </div>
       )}
-      {editingLesson && (
-        <div className="mt-6 rounded-card border border-gray-200 bg-white p-6 shadow-card">
-          <h4 className="mb-4 font-semibold text-gray-900">Edit lesson</h4>
-          <LessonBuilderForm
-            lesson={editingLesson}
-            classId={classId}
-            moduleId={editingLesson.moduleId}
-            userId={userId}
-            onSave={handleSaveEdit}
-            onCancel={() => setEditingLesson(null)}
-            isNew={false}
-          />
-        </div>
-      )}
-    </ContentPane>
-  );
-}
 
-function DocumentsTab({
-  modules,
-  lessons,
-  loading,
-  isTeacher,
-  updateModule,
-  classId,
-}: {
-  modules: ModuleWithId[];
-  lessons: LessonWithId[];
-  loading: boolean;
-  isTeacher: boolean;
-  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
-  classId: string;
-}) {
-  const moduleDocs = modules.flatMap((m) =>
-    (m.documentRefs ?? []).map((ref, i) => ({ source: "module" as const, moduleName: m.name, ref, key: `${m.id}-${i}` }))
-  );
-  const lessonDocs = lessons.flatMap((l) =>
-    (l.mediaRefs ?? []).filter((r) => r.type === "document").map((ref, i) => ({ source: "lesson" as const, lessonTitle: l.title, ref, key: `${l.id}-${i}` }))
-  );
-
-  if (loading) {
-    return (
-      <ContentPane title="Documents">
-        <p className="text-gray-500">Loading…</p>
-      </ContentPane>
-    );
-  }
-
-  return (
-    <ContentPane title="Documents">
-      <p className="mb-4 text-sm text-gray-600">
-        Documents attached to modules or lessons. Students can download from the Modules and Lessons tabs.
-      </p>
-      {moduleDocs.length > 0 && (
-        <div className="mb-6">
-          <h3 className="mb-2 font-semibold text-gray-900">Module documents</h3>
-          <div className="flex flex-wrap gap-3">
-            {moduleDocs.map((d) => (
-              <div key={d.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <span className="text-xs text-gray-500">{d.moduleName}</span>
-                <div className="mt-1">
-                  <DocumentViewer mediaRef={d.ref} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {lessonDocs.length > 0 && (
-        <div>
-          <h3 className="mb-2 font-semibold text-gray-900">Lesson documents</h3>
-          <div className="flex flex-wrap gap-3">
-            {lessonDocs.map((d) => (
-              <div key={d.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <span className="text-xs text-gray-500">{d.lessonTitle}</span>
-                <div className="mt-1">
-                  <DocumentViewer mediaRef={d.ref} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {moduleDocs.length === 0 && lessonDocs.length === 0 && (
-        <p className="text-gray-500">No documents attached yet. Add documents in Modules or when editing a Lesson.</p>
-      )}
-    </ContentPane>
-  );
-}
-
-function QuizzesTab({
-  quizzes,
-  loading,
-  classId,
-  isTeacher,
-}: {
-  quizzes: { id: string; title: string }[];
-  loading: boolean;
-  classId: string;
-  isTeacher: boolean;
-}) {
-  return (
-    <ContentPane title="Quizzes">
-      {isTeacher && (
-        <Link
-          to={`/teacher/class/${classId}/quizzes`}
-          className="mb-4 inline-block font-medium text-primary no-underline hover:underline"
-        >
-          Manage quizzes →
-        </Link>
-      )}
-      {loading && <p className="text-gray-500">Loading…</p>}
-      {!loading && quizzes.length === 0 && (
-        <p className="text-gray-600">No quizzes yet.</p>
-      )}
-      {!loading && quizzes.length > 0 && (
+      {!loading && sortedLessons.length > 0 && (
         <div className="space-y-3">
-          {quizzes.map((q) => (
-            <Link
-              key={q.id}
-              to={isTeacher ? `/teacher/class/${classId}/quizzes` : `/student/class/${classId}/quiz/${q.id}`}
-              className="block rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary/20 hover:shadow-card"
+          {sortedLessons.map((lesson) => (
+            <div
+              key={lesson.id}
+              className={`rounded-card border bg-white p-4 shadow-card ${
+                lesson.status === "live" ? "border-red-300 ring-1 ring-red-200" : "border-gray-200"
+              }`}
             >
-              <span className="font-medium text-gray-900">{q.title}</span>
-            </Link>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
+                    <StatusBadge status={lesson.status} />
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                    {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
+                  </p>
+                  {lesson.zoomJoinUrl && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Zoom ID: {lesson.zoomMeetingId}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {lesson.status !== "ended" && lesson.zoomStartUrl && (
+                    <a
+                      href={lesson.zoomStartUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white no-underline hover:bg-primary-dark"
+                    >
+                      {lesson.status === "live" ? "Rejoin Zoom" : "Start Zoom"}
+                    </a>
+                  )}
+                  {lesson.status === "scheduled" && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(lesson.id, "live")}
+                      disabled={statusLoading === lesson.id}
+                      className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Go Live
+                    </button>
+                  )}
+                  {lesson.status === "live" && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(lesson.id, "ended")}
+                      disabled={statusLoading === lesson.id}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      End Class
+                    </button>
+                  )}
+                  {lesson.status !== "live" && (
+                    <button
+                      type="button"
+                      onClick={() => deleteLiveLesson(lesson.id)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           ))}
+        </div>
+      )}
+    </ContentPane>
+  );
+}
+
+function StudentLiveClassesView({ classId }: { classId: string }) {
+  const { lessons, loading } = useClassLiveLessons(classId);
+  const now = Date.now();
+  const upcoming = lessons
+    .filter((l) => l.status !== "ended" && l.scheduledAt >= now - 2 * 60 * 60 * 1000)
+    .sort((a, b) => a.scheduledAt - b.scheduledAt);
+  const liveLessons = lessons.filter((l) => l.status === "live");
+
+  return (
+    <ContentPane title="Live Classes">
+      {loading && <p className="text-gray-500">Loading\u2026</p>}
+
+      {!loading && liveLessons.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {liveLessons.map((lesson) => (
+            <div
+              key={lesson.id}
+              className="rounded-card border border-red-300 bg-white p-4 shadow-card ring-1 ring-red-200"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="mb-1 flex items-center gap-2">
+                    <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
+                    <StatusBadge status="live" />
+                  </div>
+                  <p className="text-sm text-gray-600">Started at {formatTime(lesson.scheduledAt)}</p>
+                </div>
+                {lesson.zoomJoinUrl && (
+                  <a
+                    href={lesson.zoomJoinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white no-underline hover:bg-red-700"
+                  >
+                    Join Now
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && upcoming.length === 0 && liveLessons.length === 0 && (
+        <p className="text-gray-600">No upcoming live classes for this course.</p>
+      )}
+
+      {!loading && upcoming.filter((l) => l.status !== "live").length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-medium text-gray-900">Upcoming</h3>
+          {upcoming
+            .filter((l) => l.status !== "live")
+            .map((lesson) => (
+              <div
+                key={lesson.id}
+                className="rounded-card border border-gray-200 bg-white p-4 shadow-card"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
+                    <p className="text-sm text-gray-600">
+                      {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                      {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
+                    </p>
+                  </div>
+                  <StatusBadge status={lesson.status} />
+                </div>
+              </div>
+            ))}
         </div>
       )}
     </ContentPane>
@@ -880,6 +625,7 @@ function RosterTab({
   deleteCohort: (id: string) => Promise<void>;
   addEnrollment: (userId: string, cohortId?: string, status?: string) => Promise<void>;
   removeEnrollment: (userId: string) => Promise<void>;
+  issueCertification?: ((data: { userId: string; classId: string }) => Promise<void>) | null;
   classId: string;
 }) {
   const [newCohortName, setNewCohortName] = useState("");
@@ -943,7 +689,7 @@ function RosterTab({
     <ContentPane title="Roster">
       <section className="mb-8">
         <h3 className="mb-4 text-lg font-medium text-gray-900">Cohorts</h3>
-        {cohortsLoading && <p className="text-gray-500">Loading…</p>}
+        {cohortsLoading && <p className="text-gray-500">Loading&hellip;</p>}
         {!cohortsLoading && (
           <>
             <form onSubmit={handleCreateCohort} className="mb-4 flex gap-2">
@@ -959,7 +705,7 @@ function RosterTab({
                 disabled={newCohortCreating}
                 className="rounded-lg bg-primary px-4 py-2 text-white"
               >
-                {newCohortCreating ? "Creating…" : "Create cohort"}
+                {newCohortCreating ? "Creating\u2026" : "Create cohort"}
               </button>
             </form>
             <div className="space-y-2">
@@ -984,7 +730,7 @@ function RosterTab({
       </section>
       <section>
         <h3 className="mb-4 text-lg font-medium text-gray-900">Enrollments</h3>
-        {enrollmentsLoading && <p className="text-gray-500">Loading…</p>}
+        {enrollmentsLoading && <p className="text-gray-500">Loading&hellip;</p>}
         <form onSubmit={handleAddEnrollment} className="mb-4 flex flex-wrap gap-2">
           <input
             type="email"
@@ -1010,7 +756,7 @@ function RosterTab({
             disabled={addingEnrollment}
             className="rounded-lg bg-primary px-4 py-2 text-white"
           >
-            {addingEnrollment ? "Adding…" : "Add student"}
+            {addingEnrollment ? "Adding\u2026" : "Add student"}
           </button>
         </form>
         {enrollmentError && (
@@ -1041,7 +787,7 @@ function RosterTab({
                     disabled={issuingFor === e.userId}
                     className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
                   >
-                    {issuingFor === e.userId ? "Issuing…" : "Issue certification"}
+                    {issuingFor === e.userId ? "Issuing\u2026" : "Issue certification"}
                   </button>
                 )}
                 <button
@@ -1056,170 +802,6 @@ function RosterTab({
           ))}
         </div>
       </section>
-    </ContentPane>
-  );
-}
-
-function AssignmentsTab({
-  assignments,
-  loading,
-  classId,
-  isTeacher,
-  createAssignment,
-  userId,
-  modules,
-}: {
-  assignments: { id: string; title: string; brief?: string; deadline?: number; moduleId?: string; lessonId?: string }[];
-  loading: boolean;
-  classId: string;
-  isTeacher: boolean;
-  createAssignment?: (data: { classId: string; moduleId: string; ownerId: string; title: string; brief: string; lessonId?: string }, ownerId: string) => Promise<void>;
-  userId: string;
-  modules: { id: string; name: string }[];
-}) {
-  const [newTitle, setNewTitle] = useState("");
-  const [newBrief, setNewBrief] = useState("");
-  const [newModuleId, setNewModuleId] = useState("");
-  const [newLessonId, setNewLessonId] = useState("");
-  const [creating, setCreating] = useState(false);
-  const { lessons: moduleLessons } = useModuleLessons(
-    classId,
-    newModuleId || undefined
-  );
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createAssignment || !newTitle.trim() || !userId || !newModuleId) return;
-    setCreating(true);
-    try {
-      await createAssignment(
-        {
-          classId,
-          moduleId: newModuleId,
-          ownerId: userId,
-          title: newTitle.trim(),
-          brief: newBrief.trim() || "No brief provided.",
-          lessonId: newLessonId || undefined,
-        },
-        userId
-      );
-      setNewTitle("");
-      setNewBrief("");
-      setNewModuleId("");
-      setNewLessonId("");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <ContentPane title="Assignments">
-      {isTeacher && createAssignment && (
-        <form onSubmit={handleCreate} className="mb-6 max-w-md space-y-4">
-          <div>
-            <label htmlFor="assign-module" className="mb-1.5 block text-sm font-medium text-gray-700">
-              Module (required)
-            </label>
-            <select
-              id="assign-module"
-              value={newModuleId}
-              onChange={(e) => {
-                setNewModuleId(e.target.value);
-                setNewLessonId("");
-              }}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            >
-              <option value="">Select module</option>
-              {modules.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {newModuleId && (
-            <div>
-              <label htmlFor="assign-lesson" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Based on lesson (optional)
-              </label>
-              <select
-                id="assign-lesson"
-                value={newLessonId}
-                onChange={(e) => setNewLessonId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">None (module-level assignment)</option>
-                {moduleLessons.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label htmlFor="assign-title" className="mb-1.5 block text-sm font-medium text-gray-700">
-              Assignment title
-            </label>
-            <input
-              id="assign-title"
-              type="text"
-              placeholder="e.g. Film Score Analysis"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label htmlFor="assign-brief" className="mb-1.5 block text-sm font-medium text-gray-700">
-              Brief
-            </label>
-            <textarea
-              id="assign-brief"
-              placeholder="Assignment instructions..."
-              value={newBrief}
-              onChange={(e) => setNewBrief(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={creating || !newModuleId}
-            className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {creating ? "Creating…" : "Create assignment"}
-          </button>
-        </form>
-      )}
-      {loading && <p className="text-gray-500">Loading…</p>}
-      {!loading && assignments.length === 0 && (
-        <p className="text-gray-600">No assignments yet.</p>
-      )}
-      {!loading && assignments.length > 0 && (
-        <div className="space-y-4">
-          {assignments.map((a) => (
-            <Link
-              key={a.id}
-              to={`${isTeacher ? "/teacher" : "/student"}/class/${classId}/assignment/${a.id}`}
-              className="block rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary/20 hover:shadow-card"
-            >
-              <strong className="text-gray-900">{a.title}</strong>
-              {a.deadline && (
-                <p className="mt-1 text-sm text-gray-600">
-                  Due: {formatUtcForDisplay(a.deadline)}
-                </p>
-              )}
-              {a.brief && (
-                <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                  {a.brief}
-                </p>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
     </ContentPane>
   );
 }

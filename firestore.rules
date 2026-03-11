@@ -119,13 +119,13 @@ service cloud.firestore {
       allow update, delete: if resource.data.userId == request.auth.uid || isClassTeacher(classId);
     }
 
-    // Curricula / modules: same as class access (student must have fulfilled mandatory requirements)
+    // Curricula: teacher CRUD own; authenticated users can read
     match /curricula/{docId} {
       allow read: if request.auth != null && (
-        isTeacher() && get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.teacherId == request.auth.uid
-        || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        resource.data.teacherId == request.auth.uid || isAdmin()
       );
-      allow write: if isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid;
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
     match /modules/{moduleId} {

@@ -40,6 +40,9 @@ export const getTeacherSettings = onCall(async (request) => {
       features: { ...DEFAULT_FEATURES, ...d.features },
       stripeConnectAccountId: d.stripeConnectAccountId,
       stripeOnboardingComplete: d.stripeOnboardingComplete ?? false,
+      zoomAccountId: d.zoomAccountId,
+      zoomClientId: d.zoomClientId,
+      zoomClientSecret: d.zoomClientSecret ? "••••••••" : undefined,
       updatedAt: d.updatedAt ?? Date.now(),
     };
   }
@@ -48,6 +51,9 @@ export const getTeacherSettings = onCall(async (request) => {
     features: { ...DEFAULT_FEATURES },
     stripeConnectAccountId: undefined,
     stripeOnboardingComplete: false,
+    zoomAccountId: undefined,
+    zoomClientId: undefined,
+    zoomClientSecret: undefined,
     updatedAt: Date.now(),
   };
 });

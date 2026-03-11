@@ -8,6 +8,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { getPermissionErrorMessage, isFirebasePermissionError } from "../utils/firebaseErrors";
 import type { Submission } from "@learning-scores/shared";
 
 export interface SubmissionWithMeta extends Submission {
@@ -18,12 +19,15 @@ export interface SubmissionWithMeta extends Submission {
 export function useStudentSubmissions(userId: string | undefined) {
   const [submissions, setSubmissions] = useState<SubmissionWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
       setLoading(false);
+      setPermissionError(null);
       return;
     }
+    setPermissionError(null);
     const q = query(
       collectionGroup(db, "submissions"),
       where("userId", "==", userId)
@@ -54,8 +58,13 @@ export function useStudentSubmissions(userId: string | undefined) {
         });
         setSubmissions(list);
       })
+      .catch((err) => {
+        if (isFirebasePermissionError(err)) {
+          setPermissionError(getPermissionErrorMessage(err, "Failed to load submissions"));
+        }
+      })
       .finally(() => setLoading(false));
   }, [userId]);
 
-  return { submissions, loading };
+  return { submissions, loading, permissionError };
 }

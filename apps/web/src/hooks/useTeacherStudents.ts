@@ -111,8 +111,12 @@ export function useTeacherStudents(teacherId: string | undefined) {
         setStudents(result);
       } catch (err) {
         if (!cancelled) {
+          const msg = err instanceof Error ? err.message : "Failed to load students";
+          const isPermissionDenied = typeof msg === "string" && msg.toLowerCase().includes("permission");
           setError(
-            err instanceof Error ? err.message : "Failed to load students"
+            isPermissionDenied
+              ? "Permission denied. Ensure your account has the teacher role. Contact an administrator."
+              : msg
           );
         }
       } finally {

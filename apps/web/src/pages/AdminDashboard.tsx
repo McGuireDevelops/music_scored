@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { getPermissionErrorMessage } from "../utils/firebaseErrors";
 
 interface UserDoc {
   id: string;
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
         });
         setUsers(list);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load users");
+        setError(getPermissionErrorMessage(err, "Failed to load users"));
       } finally {
         setLoading(false);
       }
@@ -48,6 +49,7 @@ export default function AdminDashboard() {
         prev.map((u) => (u.id === userId ? { ...u, role } : u))
       );
     } catch (err) {
+      setError(getPermissionErrorMessage(err, "Failed to update role"));
       console.error(err);
     } finally {
       setUpdating(null);

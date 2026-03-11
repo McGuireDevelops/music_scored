@@ -35,7 +35,7 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
   const { branding } = useTenant();
-  const { features } = useTeacherSettings(profile?.role === "teacher" || profile?.role === "admin" ? user?.uid : undefined);
+  const { features, permissionError } = useTeacherSettings(profile?.role === "teacher" || profile?.role === "admin" ? user?.uid : undefined);
 
   const visibleItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -77,6 +77,11 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
           </SidebarNavLink>
         ))}
       </nav>
+      {permissionError && (
+        <div className="mx-3 mb-2 rounded-lg bg-amber-500/20 px-3 py-2 text-xs text-amber-100">
+          {permissionError}
+        </div>
+      )}
       <div className="border-t border-white/10 px-4 py-4">
         {user ? (
           <div className="flex flex-col gap-2">

@@ -11,23 +11,35 @@ import {
 } from "recharts";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
+import { useTenant } from "../contexts/TenantContext";
 import { useTeacherClasses } from "../hooks/useTeacherClasses";
 import { useTeacherStudents } from "../hooks/useTeacherStudents";
 import { useTeacherAssignments } from "../hooks/useTeacherAssignments";
 import { useTeacherLiveLessons } from "../hooks/useTeacherLiveLessons";
 import { StatCard } from "../components/reports";
 import { formatUtcForDisplay } from "../utils/timezone";
+import { lightenHex } from "../utils/color";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Link } from "react-router-dom";
 
-const CHART_COLORS = ["#7c3aed", "#a78bfa", "#c4b5fd", "#ddd6fe"];
-
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const UPCOMING_LIST_SIZE = 5;
 
+function getChartColors(primaryColor: string | undefined, accentColor: string | undefined): string[] {
+  const base = primaryColor ?? "#6366F1";
+  const accent = accentColor ?? base;
+  return [
+    base,
+    accent,
+    lightenHex(base, 0.25),
+    lightenHex(base, 0.5),
+  ];
+}
+
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const { branding } = useTenant();
   const { classes, loading, error, setClasses } = useTeacherClasses(user?.uid);
   const { students, loading: studentsLoading } = useTeacherStudents(user?.uid);
   const { assignments, loading: assignmentsLoading } = useTeacherAssignments(user?.uid);
@@ -46,6 +58,12 @@ export default function TeacherDashboard() {
   }, [assignments]);
 
   const metricsLoading = loading || studentsLoading || assignmentsLoading || liveLessonsLoading;
+
+  const chartColors = useMemo(
+    () => getChartColors(branding.primaryColor, branding.accentColor),
+    [branding.primaryColor, branding.accentColor]
+  );
+  const primaryChartColor = branding.primaryColor ?? "#7c3aed";
 
   const studentsPerCourseData = useMemo(() => {
     return classes.map((c) => ({
@@ -139,7 +157,7 @@ export default function TeacherDashboard() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="mb-2 text-2xl font-semibold tracking-tight text-gray-900">
-              Dashboard
+              {branding.tenantName ? `${branding.tenantName} Dashboard` : "Dashboard"}
             </h1>
             <p className="text-gray-600">
               Manage your classes and course content
@@ -266,7 +284,7 @@ export default function TeacherDashboard() {
                             {studentsPerCourseData.map((_, index) => (
                               <Cell
                                 key={index}
-                                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                                fill={chartColors[index % chartColors.length]}
                               />
                             ))}
                           </Bar>
@@ -298,7 +316,7 @@ export default function TeacherDashboard() {
                           />
                           <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                           <Tooltip />
-                          <Bar dataKey="count" name="Assignments" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="count" name="Assignments" fill={primaryChartColor} radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

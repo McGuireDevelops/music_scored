@@ -13,6 +13,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useStudentSubmissions } from "../hooks/useStudentSubmissions";
 import { formatUtcForDisplay } from "../utils/timezone";
+import { getPermissionErrorMessage, isFirebasePermissionError } from "../utils/firebaseErrors";
 
 interface PortfolioItem {
   id: string;
@@ -23,30 +24,38 @@ interface PortfolioItem {
 
 export default function PortfolioPage() {
   const { user } = useAuth();
-  const { submissions, loading: submissionsLoading } =
+  const { submissions, loading: submissionsLoading, permissionError: submissionsError } =
     useStudentSubmissions(user?.uid);
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [addingFor, setAddingFor] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState("");
 
   useEffect(() => {
     if (!user?.uid) return;
+    setPortfolioError(null);
     const q = query(
       collection(db, "portfolioItems"),
       where("userId", "==", user.uid)
     );
-    getDocs(q).then((snap) => {
-      setItems(
-        snap.docs.map((d) => ({
-          id: d.id,
-          classId: d.data().classId,
-          label: d.data().label,
-          submissionIds: d.data().submissionIds ?? [],
-        }))
-      );
-      setLoading(false);
-    });
+    getDocs(q)
+      .then((snap) => {
+        setItems(
+          snap.docs.map((d) => ({
+            id: d.id,
+            classId: d.data().classId,
+            label: d.data().label,
+            submissionIds: d.data().submissionIds ?? [],
+          }))
+        );
+      })
+      .catch((err) => {
+        if (isFirebasePermissionError(err)) {
+          setPortfolioError(getPermissionErrorMessage(err, "Failed to load portfolio"));
+        }
+      })
+      .finally(() => setLoading(false));
   }, [user?.uid]);
 
   const submissionIdsInPortfolio = new Set(
@@ -58,6 +67,7 @@ export default function PortfolioPage() {
     const submission = submissions.find((s) => s.id === submissionId);
     if (!submission) return;
     setAddingFor(submissionId);
+    setPortfolioError(null);
     try {
       const ref = await addDoc(collection(db, "portfolioItems"), {
         userId: user.uid,
@@ -75,7 +85,10 @@ export default function PortfolioPage() {
         },
       ]);
       setNewLabel("");
-      setAddingFor(null);
+    } catch (err) {
+      if (isFirebasePermissionError(err)) {
+        setPortfolioError(getPermissionErrorMessage(err, "Failed to add to portfolio"));
+      }
     } finally {
       setAddingFor(null);
     }
@@ -86,9 +99,14 @@ export default function PortfolioPage() {
       await deleteDoc(doc(db, "portfolioItems", itemId));
       setItems((prev) => prev.filter((i) => i.id !== itemId));
     } catch (err) {
+      if (isFirebasePermissionError(err)) {
+        setPortfolioError(getPermissionErrorMessage(err, "Failed to remove item"));
+      }
       console.error(err);
     }
   };
+
+  const displayError = portfolioError ?? submissionsError;
 
   return (
     <ProtectedRoute requiredRole="student">
@@ -96,6 +114,11 @@ export default function PortfolioPage() {
         <h2 className="mb-6 text-2xl font-semibold tracking-tight text-gray-900">
           Portfolio
         </h2>
+        {displayError && (
+          <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {displayError}
+          </p>
+        )}
         {loading && <p className="text-gray-500">Loading…</p>}
         {!loading && (
           <>

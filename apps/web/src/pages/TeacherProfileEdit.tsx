@@ -5,6 +5,7 @@ import { db, storage } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { getPermissionErrorMessage, isFirebasePermissionError } from "../utils/firebaseErrors";
 
 export default function TeacherProfileEdit() {
   const { user } = useAuth();
@@ -19,24 +20,32 @@ export default function TeacherProfileEdit() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) return;
-    getDoc(doc(db, "teacherProfiles", user.uid)).then((snap) => {
-      if (snap.exists()) {
-        const d = snap.data();
-        setDisplayName(d.displayName ?? "");
-        setHeadline(d.headline ?? "");
-        setBio(d.bio ?? "");
-        setTenantName(d.tenantName ?? "");
-        setLogoUrl(d.logoUrl ?? "");
-        setPrimaryColor(d.primaryColor ?? "#6366F1");
-        setAccentColor(d.accentColor ?? "");
-      } else {
-        setDisplayName(user.displayName ?? "");
-      }
-      setLoading(false);
-    });
+    setError(null);
+    getDoc(doc(db, "teacherProfiles", user.uid))
+      .then((snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          setDisplayName(d.displayName ?? "");
+          setHeadline(d.headline ?? "");
+          setBio(d.bio ?? "");
+          setTenantName(d.tenantName ?? "");
+          setLogoUrl(d.logoUrl ?? "");
+          setPrimaryColor(d.primaryColor ?? "#6366F1");
+          setAccentColor(d.accentColor ?? "");
+        } else {
+          setDisplayName(user.displayName ?? "");
+        }
+      })
+      .catch((err) => {
+        if (isFirebasePermissionError(err)) {
+          setError(getPermissionErrorMessage(err, "Failed to load profile"));
+        }
+      })
+      .finally(() => setLoading(false));
   }, [user?.uid, user?.displayName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,6 +53,7 @@ export default function TeacherProfileEdit() {
     if (!user?.uid) return;
     setSaving(true);
     setSaved(false);
+    setError(null);
     try {
       await setDoc(
         doc(db, "teacherProfiles", user.uid),
@@ -61,6 +71,10 @@ export default function TeacherProfileEdit() {
         { merge: true }
       );
       setSaved(true);
+    } catch (err) {
+      if (isFirebasePermissionError(err)) {
+        setError(getPermissionErrorMessage(err, "Failed to save profile"));
+      }
     } finally {
       setSaving(false);
     }
@@ -75,12 +89,17 @@ export default function TeacherProfileEdit() {
       return;
     }
     setLogoUploading(true);
+    setError(null);
     try {
       const path = `tenants/${user.uid}/logo.${ext}`;
       const storageRef = ref(storage, path);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       setLogoUrl(url);
+    } catch (err) {
+      if (isFirebasePermissionError(err)) {
+        setError(getPermissionErrorMessage(err, "Failed to upload logo"));
+      }
     } finally {
       setLogoUploading(false);
     }
@@ -92,6 +111,11 @@ export default function TeacherProfileEdit() {
   return (
     <ProtectedRoute requiredRole="teacher">
       <div>
+        {error && (
+          <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         <Link
           to="/"
           className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"

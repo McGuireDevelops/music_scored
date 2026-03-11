@@ -11,7 +11,7 @@
     "lint": "pnpm -r run lint"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20"
   },
   "workspaces": ["apps/*", "packages/*"],
   "packageManager": "pnpm@9.0.0"

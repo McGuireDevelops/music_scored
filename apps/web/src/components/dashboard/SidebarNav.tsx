@@ -58,11 +58,15 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
 
   const classMatch = location.pathname.match(/^\/(teacher|student)\/class\/([^/]+)/);
   const classBasePath = classMatch ? `/${classMatch[1]}/class/${classMatch[2]}` : null;
-  const currentTab = classBasePath
+  const firstClassId = teacherClasses[0]?.id;
+  // Show Course block: on a class page, or for teachers (dashboard with first class, or with no class so the 12 tabs still appear)
+  const courseSectionBasePath =
+    classBasePath ??
+    (isTeacherOrAdmin ? (firstClassId ? `/teacher/class/${firstClassId}` : "/teacher") : null);
+  const currentTab = courseSectionBasePath
     ? new URLSearchParams(location.search).get("tab") || "curriculum"
     : null;
-  const isOnDashboard = location.pathname === "/" || location.pathname === "/teacher";
-  const showCourseSectionOnDashboard = isOnDashboard && isTeacherOrAdmin && teacherClasses.length > 0;
+  const showCourseSection = !!courseSectionBasePath;
 
   const duplicateLabelsWhenInClass = ["Lessons", "Assignments", "Quizzes"];
   const visibleItems = navItems.filter((item) => {
@@ -109,32 +113,20 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
             {item.label}
           </SidebarNavLink>
         ))}
-        {(classBasePath || showCourseSectionOnDashboard) ? (
+        {showCourseSection ? (
           <>
             <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
               Course
             </div>
-            {classBasePath ? (
-              classNavTabs.map((tab) => (
-                <SidebarNavLink
-                  key={tab.id}
-                  to={`${classBasePath}?tab=${tab.id}`}
-                  current={currentTab === tab.id}
-                >
-                  {tab.label}
-                </SidebarNavLink>
-              ))
-            ) : (
-              teacherClasses.map((c) => (
-                <SidebarNavLink
-                  key={c.id}
-                  to={`/teacher/class/${c.id}?tab=curriculum`}
-                  current={false}
-                >
-                  {c.name}
-                </SidebarNavLink>
-              ))
-            )}
+            {classNavTabs.map((tab) => (
+              <SidebarNavLink
+                key={tab.id}
+                to={`${courseSectionBasePath}?tab=${tab.id}`}
+                current={classBasePath ? currentTab === tab.id : false}
+              >
+                {tab.label}
+              </SidebarNavLink>
+            ))}
             <div className="my-2 border-t border-white/10" />
           </>
         ) : null}

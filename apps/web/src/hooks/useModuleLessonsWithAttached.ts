@@ -89,7 +89,12 @@ export function useModuleLessonsWithAttached(
       }
     }
 
-    fetchAttached();
+    fetchAttached().catch(() => {
+      if (!cancelled) {
+        setAttachedItems([]);
+        setAttachedLoading(false);
+      }
+    });
     return () => {
       cancelled = true;
     };

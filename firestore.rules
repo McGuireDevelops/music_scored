@@ -137,11 +137,7 @@ service cloud.firestore {
 
     // Lesson placements (attach/clone across modules)
     match /lessonPlacements/{placementId} {
-      allow read: if request.auth != null && (
-        isClassTeacher(resource.data.classId)
-        || studentCanAccessClassContent(resource.data.classId)
-        || isAdmin()
-      );
+      allow read: if request.auth != null && (hasValidAccessGrant(resource.data.classId) || isAdmin());
       allow create: if isTeacher() && isClassTeacher(request.resource.data.classId);
       allow update, delete: if isTeacher() && isClassTeacher(resource.data.classId);
     }

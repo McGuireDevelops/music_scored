@@ -17,6 +17,7 @@ import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { LessonViewer } from "../components/LessonViewer";
 import { LessonBuilderForm } from "../components/LessonBuilderForm";
 import { SortableLessonItem } from "../components/SortableLessonItem";
+import { AddExistingLessonModal } from "../components/AddExistingLessonModal";
 import {
   DndContext,
   closestCenter,

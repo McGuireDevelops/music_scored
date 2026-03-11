@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
+import SignIn from "./pages/SignIn";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -16,6 +17,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="signin" element={<SignIn />} />
             <Route path="student" element={<StudentDashboard />} />
             <Route path="teacher" element={<TeacherDashboard />} />
             <Route path="admin" element={<AdminDashboard />} />

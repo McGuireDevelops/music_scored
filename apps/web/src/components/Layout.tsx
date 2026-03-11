@@ -49,9 +49,9 @@ export default function Layout() {
               Sign out
             </button>
           ) : (
-            <button onClick={signInWithGoogle} style={{ padding: "0.5rem 1rem", cursor: "pointer" }}>
-              Sign in with Google
-            </button>
+            <Link to="/signin" style={{ padding: "0.5rem 1rem", cursor: "pointer", background: "#333", color: "#fff", borderRadius: "4px", textDecoration: "none" }}>
+              Sign in
+            </Link>
           )}
         </div>
       </nav>

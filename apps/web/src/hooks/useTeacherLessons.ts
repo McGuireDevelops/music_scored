@@ -1,16 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  collection,
-  getDocs,
-  getDoc,
-  query,
-  where,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
-import { db } from "../firebase";
+import { functions, httpsCallable } from "../firebase";
 import type { Lesson } from "@learning-scores/shared";
 
 export interface TeacherLessonWithId extends Lesson {
@@ -41,53 +30,13 @@ export function useTeacherLessons(teacherId: string | undefined) {
       setError(null);
 
       try {
-        const lessonsSnap = await getDocs(
-          query(
-            collection(db, "lessons"),
-            where("ownerId", "==", teacherId)
-          )
+        const getLessons = httpsCallable<unknown, { lessons: TeacherLessonEnriched[] }>(
+          functions,
+          "getTeacherLessons"
         );
-
+        const res = await getLessons({});
         if (cancelled) return;
-
-        const lessonList: TeacherLessonWithId[] = lessonsSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as TeacherLessonWithId[];
-
-        lessonList.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-        const moduleIds = [...new Set(lessonList.map((l) => l.moduleId))];
-        const classIds = [...new Set(lessonList.map((l) => l.classId))];
-
-        const modulesMap = new Map<string, string>();
-        const classesMap = new Map<string, string>();
-
-        for (const mid of moduleIds) {
-          if (!mid) continue;
-          const modSnap = await getDoc(doc(db, "modules", mid));
-          if (cancelled) return;
-          if (modSnap.exists()) {
-            modulesMap.set(mid, modSnap.data().name ?? "Module");
-          }
-        }
-
-        for (const cid of classIds) {
-          if (!cid) continue;
-          const classSnap = await getDoc(doc(db, "classes", cid));
-          if (cancelled) return;
-          if (classSnap.exists()) {
-            classesMap.set(cid, classSnap.data().name ?? "Class");
-          }
-        }
-
-        const enriched: TeacherLessonEnriched[] = lessonList.map((l) => ({
-          ...l,
-          moduleName: l.moduleId ? modulesMap.get(l.moduleId) : undefined,
-          className: l.classId ? classesMap.get(l.classId) : undefined,
-        }));
-
-        setLessons(enriched);
+        setLessons(res.data.lessons);
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : "Failed to load lessons";
@@ -109,18 +58,29 @@ export function useTeacherLessons(teacherId: string | undefined) {
     };
   }, [teacherId]);
 
+  const createLessonFn = httpsCallable<
+    Record<string, unknown>,
+    { id: string }
+  >(functions, "createTeacherLesson");
+
+  const updateLessonFn = httpsCallable<
+    { lessonId: string; data: Record<string, unknown> },
+    { success: boolean }
+  >(functions, "updateTeacherLesson");
+
+  const deleteLessonFn = httpsCallable<string, { success: boolean }>(
+    functions,
+    "deleteTeacherLesson"
+  );
+
   const createLesson = async (
     data: Omit<Lesson, "id"> & { classId: string; moduleId: string },
     ownerId: string
   ) => {
-    const ref = await addDoc(collection(db, "lessons"), {
-      ...data,
-      classId: data.classId,
-      moduleId: data.moduleId,
-      ownerId,
-    });
+    const payload = { ...data, classId: data.classId, moduleId: data.moduleId, ownerId };
+    const res = await createLessonFn(payload);
     const newLesson: TeacherLessonEnriched = {
-      id: ref.id,
+      id: res.data.id,
       ...data,
       ownerId,
       moduleName: undefined,
@@ -133,14 +93,14 @@ export function useTeacherLessons(teacherId: string | undefined) {
     lessonId: string,
     data: Partial<Pick<TeacherLessonWithId, "title" | "content" | "type" | "order" | "mediaRefs">>
   ) => {
-    await updateDoc(doc(db, "lessons", lessonId), data);
+    await updateLessonFn({ lessonId, data });
     setLessons((prev) =>
       prev.map((l) => (l.id === lessonId ? { ...l, ...data } : l))
     );
   };
 
   const deleteLesson = async (lessonId: string) => {
-    await deleteDoc(doc(db, "lessons", lessonId));
+    await deleteLessonFn(lessonId);
     setLessons((prev) => prev.filter((l) => l.id !== lessonId));
   };
 

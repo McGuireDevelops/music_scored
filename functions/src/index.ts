@@ -20,6 +20,12 @@ import { submitQuizAttempt } from "./quiz/submitAttempt";
 import { listUsers } from "./admin/listUsers";
 import { updateUserRole } from "./admin/updateUserRole";
 import { getTeacherSettings, updateTeacherSettings } from "./admin/getTeacherSettings";
+import {
+  getTeacherLessons,
+  createTeacherLesson,
+  updateTeacherLesson,
+  deleteTeacherLesson,
+} from "./admin/getTeacherLessons";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -38,4 +44,8 @@ export {
   updateUserRole,
   getTeacherSettings,
   updateTeacherSettings,
+  getTeacherLessons,
+  createTeacherLesson,
+  updateTeacherLesson,
+  deleteTeacherLesson,
 };

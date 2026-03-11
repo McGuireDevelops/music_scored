@@ -1,6 +1,6 @@
 # Learning Scores – Professional Film Music Learning Platform
 
-Production-grade learning platform for film music education. React 18 (web) + React Native (Expo), Firebase (Auth, Firestore, Storage, Cloud Functions), shared TypeScript models, MediaReference-first pedagogy, teacher-defined rubrics and quizzes, AI analysis (teacher-only), AccessGrant-based access.
+Production-grade learning platform for film music education by McGuireDevelops. React 18 (web) + React Native (Expo), Firebase (Auth, Firestore, Storage, Cloud Functions), shared TypeScript models, MediaReference-first pedagogy, teacher-defined rubrics and quizzes, AI analysis (teacher-only), AccessGrant-based access.
 
 ## Structure
 

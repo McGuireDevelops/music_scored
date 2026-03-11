@@ -1,13 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  doc,
-  getDoc,
-} from "firebase/firestore";
-import { db } from "../firebase";
+import { functions, httpsCallable } from "../firebase";
 
 export interface TeacherStudent {
   userId: string;
@@ -35,80 +27,13 @@ export function useTeacherStudents(teacherId: string | undefined) {
       setError(null);
 
       try {
-        const classesSnap = await getDocs(
-          query(
-            collection(db, "classes"),
-            where("teacherId", "==", teacherId)
-          )
+        const getStudents = httpsCallable<unknown, { students: TeacherStudent[] }>(
+          functions,
+          "getTeacherStudents"
         );
-
+        const res = await getStudents({});
         if (cancelled) return;
-
-        const classes = classesSnap.docs.map((d) => ({
-          id: d.id,
-          name: d.data().name ?? "Unnamed class",
-        }));
-
-        const enrollmentByUser = new Map<
-          string,
-          { courses: { classId: string; className: string }[]; status: string }
-        >();
-
-        for (const cls of classes) {
-          const enrollmentsSnap = await getDocs(
-            collection(db, "classes", cls.id, "enrollments")
-          );
-
-          if (cancelled) return;
-
-          for (const docSnap of enrollmentsSnap.docs) {
-            const data = docSnap.data();
-            const userId = docSnap.id;
-            const status = data.status ?? "enrolled";
-
-            const existing = enrollmentByUser.get(userId);
-            const courseInfo = { classId: cls.id, className: cls.name };
-
-            if (existing) {
-              existing.courses.push(courseInfo);
-            } else {
-              enrollmentByUser.set(userId, {
-                courses: [courseInfo],
-                status,
-              });
-            }
-          }
-        }
-
-        const userIds = Array.from(enrollmentByUser.keys());
-        const userProfiles = new Map<
-          string,
-          { displayName: string | null; email: string | null }
-        >();
-
-        for (const uid of userIds) {
-          const userSnap = await getDoc(doc(db, "users", uid));
-          if (cancelled) return;
-          const data = userSnap.data();
-          userProfiles.set(uid, {
-            displayName: data?.displayName ?? null,
-            email: data?.email ?? null,
-          });
-        }
-
-        const result: TeacherStudent[] = userIds.map((userId) => {
-          const enrollment = enrollmentByUser.get(userId)!;
-          const profile = userProfiles.get(userId);
-          return {
-            userId,
-            displayName: profile?.displayName ?? null,
-            email: profile?.email ?? null,
-            courses: enrollment.courses,
-            status: enrollment.status,
-          };
-        });
-
-        setStudents(result);
+        setStudents(res.data.students);
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : "Failed to load students";

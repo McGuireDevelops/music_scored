@@ -26,6 +26,8 @@ import {
   updateTeacherLesson,
   deleteTeacherLesson,
 } from "./admin/getTeacherLessons";
+import { getTeacherStudents } from "./admin/getTeacherStudents";
+import { getTeacherCommunity } from "./admin/getTeacherCommunity";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -48,4 +50,6 @@ export {
   createTeacherLesson,
   updateTeacherLesson,
   deleteTeacherLesson,
+  getTeacherStudents,
+  getTeacherCommunity,
 };

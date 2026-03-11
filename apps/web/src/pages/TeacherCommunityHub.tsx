@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../firebase";
+import { functions, httpsCallable } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -27,44 +26,13 @@ export default function TeacherCommunityHub() {
 
     async function fetch() {
       try {
-        const classesSnap = await getDocs(
-          query(
-            collection(db, "classes"),
-            where("teacherId", "==", user!.uid)
-          )
+        const getCommunity = httpsCallable<unknown, { classes: ClassWithCommunities[] }>(
+          functions,
+          "getTeacherCommunity"
         );
-
+        const res = await getCommunity({});
         if (cancelled) return;
-
-        const results: ClassWithCommunities[] = [];
-
-        for (const classDoc of classesSnap.docs) {
-          const classData = classDoc.data();
-          const classId = classDoc.id;
-          const className = classData.name ?? "Unnamed class";
-
-          const communitiesSnap = await getDocs(
-            query(
-              collection(db, "communities"),
-              where("classId", "==", classId)
-            )
-          );
-
-          if (cancelled) return;
-
-          const communities = communitiesSnap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().name ?? "Community",
-          }));
-
-          results.push({
-            id: classId,
-            name: className,
-            communities,
-          });
-        }
-
-        setClasses(results);
+        setClasses(res.data.classes);
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : "Failed to load communities";

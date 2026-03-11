@@ -15,6 +15,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@expo/vector-icons':
+        specifier: ^15.0.0
+        version: 15.1.1(expo-font@55.0.4(expo@55.0.5(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(react-dom@18.3.1(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
       '@learning-scores/firebase':
         specifier: workspace:*
         version: link:../../packages/firebase

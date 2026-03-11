@@ -52,7 +52,7 @@ Set these for Cloud Functions (Firebase Console → Functions → select functio
 | `STRIPE_SECRET_KEY` | Stripe secret key for paid classes |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (from Stripe Dashboard → Webhooks) |
 
-For Stripe webhook: create a webhook in Stripe pointing to your function URL (e.g. `https://us-central1-YOUR_PROJECT.cloudfunctions.net/stripeWebhook`) for event `checkout.session.completed`. Use the signing secret as `STRIPE_WEBHOOK_SECRET`.
+For Stripe webhook: create a webhook in Stripe pointing to your function URL (e.g. `https://us-central1-YOUR_PROJECT.cloudfunctions.net/stripeWebhook`) for events `checkout.session.completed` and `account.updated` (for Stripe Connect). Use the signing secret as `STRIPE_WEBHOOK_SECRET`.
 
 ### Deploy Firebase
 

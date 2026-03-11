@@ -67,3 +67,21 @@ export interface TeacherProfile {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface TeacherFeatureFlags {
+  quizzes?: boolean;
+  community?: boolean;
+  liveLessons?: boolean;
+  assignments?: boolean;
+  certificates?: boolean;
+  playlists?: boolean;
+  paidClasses?: boolean;
+}
+
+export interface TeacherSettings {
+  userId: string;
+  features: TeacherFeatureFlags;
+  stripeConnectAccountId?: string;
+  stripeOnboardingComplete?: boolean;
+  updatedAt: number;
+}

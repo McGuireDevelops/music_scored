@@ -1,16 +1,24 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTeacherSettings } from "../../hooks/useTeacherSettings";
+import type { TeacherFeatureFlags } from "@learning-scores/shared";
 
-const navItems: { to: string; label: string; roles?: string[] }[] = [
+const navItems: {
+  to: string;
+  label: string;
+  roles?: string[];
+  featureKey?: keyof TeacherFeatureFlags;
+}[] = [
   { to: "/", label: "Dashboard" },
   { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher", label: "Teaching", roles: ["teacher", "admin"] },
   { to: "/teacher/students", label: "Students", roles: ["teacher", "admin"] },
-  { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"] },
-  { to: "/teacher/lessons", label: "Lessons", roles: ["teacher", "admin"] },
-  { to: "/teacher/assignments", label: "Assignments", roles: ["teacher", "admin"] },
-  { to: "/teacher/quizzes", label: "Quizzes", roles: ["teacher", "admin"] },
+  { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"], featureKey: "community" },
+  { to: "/teacher/lessons", label: "Lessons", roles: ["teacher", "admin"], featureKey: "liveLessons" },
+  { to: "/teacher/assignments", label: "Assignments", roles: ["teacher", "admin"], featureKey: "assignments" },
+  { to: "/teacher/quizzes", label: "Quizzes", roles: ["teacher", "admin"], featureKey: "quizzes" },
   { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
+  { to: "/teacher/settings", label: "Settings", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
   { to: "/student/portfolio", label: "Library", roles: ["student", "admin"] },
   { to: "/student/todo", label: "To-do", roles: ["student", "admin"] },
@@ -26,11 +34,14 @@ interface SidebarNavProps {
 export function SidebarNav({ open = false }: SidebarNavProps) {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
+  const { features } = useTeacherSettings(profile?.role === "teacher" || profile?.role === "admin" ? user?.uid : undefined);
 
   const visibleItems = navItems.filter((item) => {
     if (!item.roles) return true;
     if (!user || !profile) return false;
-    return item.roles.includes(profile.role);
+    if (!item.roles.includes(profile.role)) return false;
+    if (item.featureKey !== undefined && features[item.featureKey] === false) return false;
+    return true;
   });
 
   return (

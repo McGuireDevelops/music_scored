@@ -1,14 +1,86 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useTeacherClasses } from "../hooks/useTeacherClasses";
+import { useTeacherStudents } from "../hooks/useTeacherStudents";
+import { useTeacherAssignments } from "../hooks/useTeacherAssignments";
+import { useTeacherLiveLessons } from "../hooks/useTeacherLiveLessons";
+import { StatCard } from "../components/reports";
+import { formatUtcForDisplay } from "../utils/timezone";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Link } from "react-router-dom";
 
+const CHART_COLORS = ["#7c3aed", "#a78bfa", "#c4b5fd", "#ddd6fe"];
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const UPCOMING_LIST_SIZE = 5;
+
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const { classes, loading, error, setClasses } = useTeacherClasses(user?.uid);
+  const { students, loading: studentsLoading } = useTeacherStudents(user?.uid);
+  const { assignments, loading: assignmentsLoading } = useTeacherAssignments(user?.uid);
+  const { upcomingLessons, loading: liveLessonsLoading } = useTeacherLiveLessons(user?.uid);
+
+  const { upcomingAssignments, upcomingDeadlinesCount } = useMemo(() => {
+    const now = Date.now();
+    const threshold = now + SEVEN_DAYS_MS;
+    const filtered = assignments
+      .filter((a) => a.deadline != null && a.deadline >= now && a.deadline <= threshold)
+      .sort((a, b) => (a.deadline ?? 0) - (b.deadline ?? 0));
+    return {
+      upcomingAssignments: filtered.slice(0, UPCOMING_LIST_SIZE),
+      upcomingDeadlinesCount: filtered.length,
+    };
+  }, [assignments]);
+
+  const metricsLoading = loading || studentsLoading || assignmentsLoading || liveLessonsLoading;
+
+  const studentsPerCourseData = useMemo(() => {
+    return classes.map((c) => ({
+      name: c.name.length > 20 ? `${c.name.slice(0, 17)}…` : c.name,
+      fullName: c.name,
+      students: students.filter((s) =>
+        s.courses.some((co) => co.classId === c.id)
+      ).length,
+    }));
+  }, [classes, students]);
+
+  const assignmentsDueByWeekData = useMemo(() => {
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const weeks: { name: string; count: number }[] = [];
+
+    for (let i = 0; i < 4; i++) {
+      const start = now + i * weekMs;
+      const end = now + (i + 1) * weekMs;
+      const count = assignments.filter(
+        (a) =>
+          a.deadline != null && a.deadline >= start && a.deadline < end
+      ).length;
+      const weekStart = new Date(start);
+      weeks.push({
+        name: `Week ${i + 1}\n${weekStart.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        })}`,
+        count,
+      });
+    }
+    return weeks;
+  }, [assignments]);
+
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -23,12 +95,17 @@ export default function TeacherDashboard() {
     setCreateError("");
     setCreating(true);
     try {
-      const ref = await addDoc(collection(db, "classes"), {
+      const classData: Record<string, unknown> = {
         name: name.trim() || "New class",
         description: description.trim() || null,
         teacherId: user.uid,
         createdAt: Date.now(),
-      });
+      };
+      if (isPaid && stripePriceId.trim()) {
+        classData.isPaid = true;
+        classData.stripePriceId = stripePriceId.trim();
+      }
+      const ref = await addDoc(collection(db, "classes"), classData);
       await addDoc(collection(db, "communities"), {
         classId: ref.id,
         ownerId: user.uid,
@@ -76,6 +153,162 @@ export default function TeacherDashboard() {
             {showForm ? "Cancel" : "Create class"}
           </button>
         </div>
+
+        <section className="mb-8">
+          <h2 className="mb-4 text-lg font-medium text-gray-900">Overview</h2>
+          {metricsLoading ? (
+            <p className="text-gray-500">Loading metrics…</p>
+          ) : (
+            <>
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  label="Total students"
+                  value={students.length}
+                  variant="default"
+                />
+                <StatCard
+                  label="Active courses"
+                  value={classes.length}
+                  variant="default"
+                />
+                <StatCard
+                  label="Upcoming deadlines"
+                  value={upcomingDeadlinesCount}
+                  subtext="Assignments due in next 7 days"
+                  variant={upcomingDeadlinesCount > 0 ? "warning" : "default"}
+                />
+                <StatCard
+                  label="Upcoming classes"
+                  value={upcomingLessons.length}
+                  subtext="Live lessons in next 7 days"
+                  variant={upcomingLessons.length > 0 ? "warning" : "default"}
+                />
+              </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <h3 className="mb-3 font-medium text-gray-900">Next deadlines</h3>
+                  {upcomingAssignments.length === 0 ? (
+                    <p className="text-sm text-gray-500">No assignments due in the next 7 days</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {upcomingAssignments.map((a) => (
+                        <li key={a.id}>
+                          <Link
+                            to={`/teacher/class/${a.classId}/assignment/${a.id}`}
+                            className="block text-sm text-primary hover:underline"
+                          >
+                            {a.title}
+                          </Link>
+                          <p className="text-xs text-gray-500">
+                            {a.className} · Due {formatUtcForDisplay(a.deadline!)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <h3 className="mb-3 font-medium text-gray-900">Next live lessons</h3>
+                  {upcomingLessons.length === 0 ? (
+                    <p className="text-sm text-gray-500">No live lessons in the next 7 days</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {upcomingLessons.slice(0, UPCOMING_LIST_SIZE).map((l) => (
+                        <li key={l.id}>
+                          <Link
+                            to={`/teacher/class/${l.classId}`}
+                            className="block text-sm text-primary hover:underline"
+                          >
+                            {l.title}
+                          </Link>
+                          <p className="text-xs text-gray-500">
+                            {l.className} · {formatUtcForDisplay(l.scheduledAt)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <h3 className="mb-4 font-medium text-gray-900">
+                    Students per course
+                  </h3>
+                  {studentsPerCourseData.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      No courses with enrolled students yet
+                    </p>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={studentsPerCourseData}
+                          layout="vertical"
+                          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis type="number" tick={{ fontSize: 12 }} />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={80}
+                            tick={{ fontSize: 11 }}
+                          />
+                          <Tooltip
+                            formatter={(value: number, _name: string, item: { payload: { fullName: string } }) => [
+                              value,
+                              item.payload.fullName,
+                            ]}
+                          />
+                          <Bar dataKey="students" name="Students" radius={[0, 4, 4, 0]}>
+                            {studentsPerCourseData.map((_, index) => (
+                              <Cell
+                                key={index}
+                                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                  <h3 className="mb-4 font-medium text-gray-900">
+                    Assignments due by week
+                  </h3>
+                  {assignmentsDueByWeekData.every((w) => w.count === 0) ? (
+                    <p className="text-sm text-gray-500">
+                      No assignments due in the next 4 weeks
+                    </p>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={assignmentsDueByWeekData}
+                          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 11 }}
+                            interval={0}
+                          />
+                          <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                          <Tooltip />
+                          <Bar dataKey="count" name="Assignments" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
         {showForm && (
           <form
             onSubmit={handleCreate}

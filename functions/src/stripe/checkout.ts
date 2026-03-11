@@ -1,7 +1,7 @@
 /**
  * Stripe integration for paid class access
  * createCheckoutSession: callable, returns Stripe Checkout URL
- * stripeWebhook: HTTP, handles checkout.session.completed, writes access grant
+ * stripeWebhook: HTTP, handles checkout.session.completed, account.updated
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
@@ -43,6 +43,7 @@ export const createCheckoutSession = onCall(
     }
     const classData = classDoc.data()!;
     const stripePriceId = classData.stripePriceId as string | undefined;
+    const teacherId = classData.teacherId as string | undefined;
     if (!stripePriceId) {
       throw new HttpsError(
         "failed-precondition",
@@ -54,7 +55,22 @@ export const createCheckoutSession = onCall(
     const successUrl = `${origin}/student?checkout=success`;
     const cancelUrl = `${origin}/purchase/${classId}?checkout=cancelled`;
 
-    const session = await stripe.checkout.sessions.create({
+    let stripeAccount: string | undefined;
+    if (teacherId) {
+      const settingsSnap = await admin
+        .firestore()
+        .doc(`teacherSettings/${teacherId}`)
+        .get();
+      const settings = settingsSnap.data();
+      if (
+        settings?.stripeConnectAccountId &&
+        settings?.stripeOnboardingComplete === true
+      ) {
+        stripeAccount = settings.stripeConnectAccountId as string;
+      }
+    }
+
+    const sessionOptions: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       line_items: [{ price: stripePriceId, quantity: 1 }],
       success_url: successUrl,
@@ -65,7 +81,13 @@ export const createCheckoutSession = onCall(
         classId,
         userId: uid,
       },
-    });
+    };
+
+    const session = stripeAccount
+      ? await stripe.checkout.sessions.create(sessionOptions, {
+          stripeAccount,
+        })
+      : await stripe.checkout.sessions.create(sessionOptions);
 
     return {
       url: session.url,
@@ -119,6 +141,25 @@ export const stripeWebhook = onRequest(async (req, res) => {
         },
         { merge: true }
       );
+    }
+  }
+
+  if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    if (account.charges_enabled === true) {
+      const settingsSnap = await admin
+        .firestore()
+        .collection("teacherSettings")
+        .where("stripeConnectAccountId", "==", account.id)
+        .limit(1)
+        .get();
+      if (!settingsSnap.empty) {
+        const docRef = settingsSnap.docs[0].ref;
+        await docRef.update({
+          stripeOnboardingComplete: true,
+          updatedAt: Date.now(),
+        });
+      }
     }
   }
 

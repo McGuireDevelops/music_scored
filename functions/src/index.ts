@@ -14,6 +14,7 @@ import {
   createCheckoutSession,
   stripeWebhook,
 } from "./stripe/checkout";
+import { getStripeConnectOnboardingLink } from "./stripe/connect";
 import { submitQuizAttempt } from "./quiz/submitAttempt";
 
 setGlobalOptions({ maxInstances: 10 });
@@ -26,5 +27,6 @@ export {
   saveAnalysisSnapshot,
   createCheckoutSession,
   stripeWebhook,
+  getStripeConnectOnboardingLink,
   submitQuizAttempt,
 };

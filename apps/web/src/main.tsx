@@ -30,6 +30,7 @@ import TeacherCommunityHub from "./pages/TeacherCommunityHub";
 import TeacherLessonsPage from "./pages/TeacherLessonsPage";
 import TeacherAssignmentsPage from "./pages/TeacherAssignmentsPage";
 import TeacherQuizzesPage from "./pages/TeacherQuizzesPage";
+import TeacherSettingsPage from "./pages/TeacherSettingsPage";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -57,6 +58,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="teacher/assignments" element={<TeacherAssignmentsPage />} />
               <Route path="teacher/quizzes" element={<TeacherQuizzesPage />} />
               <Route path="teacher/profile" element={<TeacherProfileEdit />} />
+              <Route path="teacher/settings" element={<TeacherSettingsPage />} />
               <Route path="teacher/class/:id" element={<ClassDetail />} />
               <Route path="teacher/class/:classId/rubrics" element={<RubricBuilder />} />
               <Route path="teacher/class/:classId/certificate" element={<CertificateDesigner />} />

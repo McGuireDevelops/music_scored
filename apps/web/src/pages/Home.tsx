@@ -22,7 +22,7 @@ export default function Home() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              to="/student"
+              to={(profile?.role === "teacher" || profile?.role === "admin") ? "/teacher" : "/student"}
               className="rounded-xl inline-flex items-center gap-2 bg-primary px-5 py-2.5 font-medium text-white no-underline transition-colors hover:bg-primary-dark"
             >
               Go to Courses

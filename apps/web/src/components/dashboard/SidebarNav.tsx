@@ -13,23 +13,42 @@ const navItems: {
 }[] = [
   { to: "/", label: "Dashboard" },
   { to: "/teacher/students", label: "Students", roles: ["teacher", "admin"] },
-  { to: "/#courses", label: "Courses", roles: ["teacher", "admin"] },
-  { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"], featureKey: "community" },
-  { to: "/teacher/lessons", label: "Lessons", roles: ["teacher", "admin"], featureKey: "liveLessons" },
-  { to: "/teacher/assignments", label: "Assignments", roles: ["teacher", "admin"], featureKey: "assignments" },
-  { to: "/teacher/quizzes", label: "Quizzes", roles: ["teacher", "admin"], featureKey: "quizzes" },
+  { to: "/student", label: "Courses", roles: ["student", "admin"] },
   { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
   { to: "/teacher/settings", label: "Settings", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
   { to: "/student/portfolio", label: "Library", roles: ["student", "teacher", "admin"] },
   { to: "/student/todo", label: "To-do", roles: ["student", "admin"] },
   { to: "/student/certifications", label: "Certifications", roles: ["student", "teacher", "admin"] },
-  { to: "#", label: "Calendar" },
-  { to: "#", label: "Help" },
 ];
 
-const classNavTabs: { id: string; label: string }[] = [
+// Teacher: Curriculum section (class-based tabs when on a class or have a class)
+const curriculumTabs: { id: string; label: string }[] = [
+  { id: "course", label: "Courses" },
+  { id: "modules", label: "Modules" },
+  { id: "lessons", label: "Lessons" },
+  { id: "assignments", label: "Assignments" },
+  { id: "roster", label: "Roster" },
+];
+
+// Teacher: Documents section (mix of global routes and class tabs)
+const documentsNavItems: {
+  to: string;
+  label: string;
+  tab?: string;
+  roles?: string[];
+  featureKey?: keyof TeacherFeatureFlags;
+}[] = [
+  { to: "/teacher/quizzes", label: "Quizzes", roles: ["teacher", "admin"], featureKey: "quizzes" },
+  { tab: "playlists", label: "Playlists", roles: ["teacher", "admin"] },
+  { to: "/student/portfolio", label: "Library", roles: ["teacher", "admin"] },
+  { tab: "live", label: "Live", roles: ["teacher", "admin"], featureKey: "liveLessons" },
+  { to: "/student/certifications", label: "Certifications", roles: ["teacher", "admin"] },
+];
+
+// Class detail page still uses full tab set for in-page tabs
+export const classNavTabs: { id: string; label: string }[] = [
   { id: "curriculum", label: "Curriculum" },
   { id: "course", label: "Course" },
   { id: "modules", label: "Modules" },
@@ -68,28 +87,57 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
     : null;
   const showCourseSection = !!courseSectionBasePath;
 
-  const duplicateLabelsWhenInClass = ["Lessons", "Assignments", "Quizzes"];
   const visibleItems = navItems.filter((item) => {
     if (!item.roles) return true;
     if (!user || !profile) return false;
     if (!item.roles.includes(profile.role)) return false;
     if (item.featureKey !== undefined && features[item.featureKey] === false) return false;
-    if (classBasePath && duplicateLabelsWhenInClass.includes(item.label)) return false;
     return true;
   });
 
-  const firstItems = visibleItems.filter(
-    (item) => item.label === "Dashboard" || item.label === "Students" || (item.label === "Courses" && item.to === "/#courses")
-  );
-  const restItems = visibleItems.filter(
-    (item) => item.label !== "Dashboard" && item.label !== "Students" && !(item.label === "Courses" && item.to === "/#courses")
-  );
+  // Teacher top: Dashboard, Students, Community
+  const teacherTopItems = [
+    { to: "/", label: "Dashboard" },
+    ...(isTeacherOrAdmin ? [{ to: "/teacher/students", label: "Students" as const }] : []),
+    ...(isTeacherOrAdmin && features.community !== false
+      ? [{ to: "/teacher/community", label: "Community" as const }]
+      : []),
+  ].filter(Boolean) as { to: string; label: string }[];
 
-  const isCurrent = (to: string) => {
+  // Documents section: filter by role and feature flags
+  const visibleDocumentsItems = documentsNavItems
+    .filter((item) => {
+      if (!item.roles?.includes(profile?.role ?? "")) return false;
+      if (item.featureKey !== undefined && features[item.featureKey] === false) return false;
+      return true;
+    })
+    .map((item) => ({
+      ...item,
+      to: item.to ?? (item.tab && courseSectionBasePath ? `${courseSectionBasePath}?tab=${item.tab}` : "#"),
+    }));
+
+  // Bottom section: Calendar, My Profile, Settings, Help (and Admin for admin)
+  const bottomItems: { to: string; label: string }[] = [
+    { to: "/calendar", label: "Calendar" },
+    ...(isTeacherOrAdmin
+      ? [
+          { to: "/teacher/profile", label: "My profile" },
+          { to: "/teacher/settings", label: "Settings" },
+        ]
+      : []),
+    { to: "/help", label: "Help" },
+    ...(profile?.role === "admin" ? [{ to: "/admin", label: "Admin" }] : []),
+  ];
+
+  const isCurrent = (to: string, tab?: string) => {
     if (to === "#") return false;
-    if (to === "/#courses") return location.pathname === "/" && location.hash === "#courses";
-    if (to === "/") return location.pathname === "/" && location.hash !== "#courses";
-    return location.pathname === to || location.pathname.startsWith(to.replace(/#.*/, "") + "/");
+    if (to === "/") return location.pathname === "/" && !location.search;
+    const pathOnly = to.replace(/#.*/, "").split("?")[0];
+    if (tab && classBasePath) {
+      const currentTab = new URLSearchParams(location.search).get("tab");
+      return location.pathname === classBasePath && currentTab === tab;
+    }
+    return location.pathname === pathOnly || location.pathname.startsWith(pathOnly + "/");
   };
 
   return (
@@ -108,17 +156,25 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
         {branding.tenantName ?? "Learning Scores"}
       </Link>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
-        {firstItems.map((item) => (
+        {/* Top: Dashboard, Students, Community (teacher) or Dashboard, Courses (student) */}
+        {teacherTopItems.map((item) => (
           <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
             {item.label}
           </SidebarNavLink>
         ))}
-        {showCourseSection ? (
+        {!isTeacherOrAdmin && (
+          <SidebarNavLink to="/student" current={isCurrent("/student")}>
+            Courses
+          </SidebarNavLink>
+        )}
+
+        {/* Teacher: Curriculum section */}
+        {isTeacherOrAdmin && showCourseSection ? (
           <>
             <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
-              Course
+              Curriculum
             </div>
-            {classNavTabs.map((tab) => (
+            {curriculumTabs.map((tab) => (
               <SidebarNavLink
                 key={tab.id}
                 to={`${courseSectionBasePath}?tab=${tab.id}`}
@@ -127,10 +183,44 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
                 {tab.label}
               </SidebarNavLink>
             ))}
-            <div className="my-2 border-t border-white/10" />
           </>
         ) : null}
-        {restItems.map((item) => (
+
+        {/* Teacher: Documents section */}
+        {isTeacherOrAdmin && visibleDocumentsItems.length > 0 ? (
+          <>
+            <div className="mt-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+              Documents
+            </div>
+            {visibleDocumentsItems.map((item) => (
+              <SidebarNavLink
+                key={item.label}
+                to={item.to}
+                current={isCurrent(item.to, item.tab)}
+              >
+                {item.label}
+              </SidebarNavLink>
+            ))}
+          </>
+        ) : null}
+
+        {/* Student: Library, To-do, Certifications */}
+        {!isTeacherOrAdmin &&
+          visibleItems
+            .filter(
+              (item) =>
+                item.label === "Library" || item.label === "To-do" || item.label === "Certifications"
+            )
+            .map((item) => (
+              <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
+                {item.label}
+              </SidebarNavLink>
+            ))}
+
+        <div className="my-2 border-t border-white/10" />
+
+        {/* Bottom: Calendar, My Profile, Settings, Help */}
+        {bottomItems.map((item) => (
           <SidebarNavLink key={`${item.to}-${item.label}`} to={item.to} current={isCurrent(item.to)}>
             {item.label}
           </SidebarNavLink>

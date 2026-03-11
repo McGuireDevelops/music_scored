@@ -30,6 +30,8 @@ import TeacherLessonsPage from "./pages/TeacherLessonsPage";
 import TeacherAssignmentsPage from "./pages/TeacherAssignmentsPage";
 import TeacherQuizzesPage from "./pages/TeacherQuizzesPage";
 import TeacherSettingsPage from "./pages/TeacherSettingsPage";
+import CalendarPage from "./pages/CalendarPage";
+import HelpPage from "./pages/HelpPage";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -67,6 +69,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="teacher/class/:classId/community" element={<CommunityPage />} />
               <Route path="teacher/class/:classId/assignment/:assignmentId" element={<AssignmentDetail />} />
               <Route path="teacher/class/:classId/student/:studentId" element={<StudentProfile />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="help" element={<HelpPage />} />
               <Route path="admin" element={<AdminDashboard />} />
             </Route>
           </Routes>

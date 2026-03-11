@@ -49,65 +49,101 @@ export default function TeacherDashboard() {
   return (
     <ProtectedRoute requiredRole="teacher">
       <div>
-        <h2>Teacher Dashboard</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          style={{ marginBottom: "1rem", padding: "0.5rem 1rem", cursor: "pointer" }}
-        >
-          {showForm ? "Cancel" : "Create class"}
-        </button>
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="mb-2 text-2xl font-semibold tracking-tight text-gray-900">
+              Teaching
+            </h1>
+            <p className="text-gray-600">
+              Manage your classes and course content
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowForm(!showForm)}
+            className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            {showForm ? "Cancel" : "Create class"}
+          </button>
+        </div>
         {showForm && (
-          <form onSubmit={handleCreate} style={{ marginBottom: "1.5rem", maxWidth: "400px" }}>
-            <div style={{ marginBottom: "0.5rem" }}>
+          <form
+            onSubmit={handleCreate}
+            className="mb-8 max-w-md rounded-card border border-gray-200 bg-white p-6 shadow-card"
+          >
+            <h3 className="mb-4 font-semibold text-gray-900">New class</h3>
+            <div className="mb-4">
+              <label htmlFor="class-name" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Class name
+              </label>
               <input
-                placeholder="Class name"
+                id="class-name"
+                type="text"
+                placeholder="e.g. Film Scoring 101"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem" }}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div style={{ marginBottom: "0.5rem" }}>
+            <div className="mb-4">
+              <label htmlFor="class-desc" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Description (optional)
+              </label>
               <input
-                placeholder="Description (optional)"
+                id="class-desc"
+                type="text"
+                placeholder="Brief description of the course"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                style={{ width: "100%", padding: "0.5rem" }}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            {createError && <p style={{ color: "#c00", fontSize: "0.9rem" }}>{createError}</p>}
-            <button type="submit" disabled={creating} style={{ padding: "0.5rem 1rem", cursor: creating ? "not-allowed" : "pointer" }}>
+            {createError && (
+              <p className="mb-4 text-sm text-red-600">{createError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
               {creating ? "Creating…" : "Create"}
             </button>
           </form>
         )}
-        {loading && <p>Loading your classes…</p>}
-        {error && <p style={{ color: "#c00" }}>{error}</p>}
+        {loading && (
+          <p className="text-gray-500">Loading your classes…</p>
+        )}
+        {error && (
+          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         {!loading && !error && classes.length === 0 && !showForm && (
-          <p>You don&apos;t have any classes yet. Create one to get started.</p>
+          <div className="rounded-card max-w-md border border-gray-200 bg-white p-8 shadow-card">
+            <p className="text-gray-600">
+              You don&apos;t have any classes yet. Create one to get started.
+            </p>
+          </div>
         )}
         {!loading && classes.length > 0 && (
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {classes.map((c) => (
-              <li
+              <Link
                 key={c.id}
-                style={{
-                  padding: "1rem",
-                  marginBottom: "0.5rem",
-                  background: "#f5f5f5",
-                  borderRadius: "8px",
-                }}
+                to={`/teacher/class/${c.id}`}
+                className="group rounded-card border border-gray-200 bg-white p-6 shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-cardHover"
               >
-                <Link to={`/teacher/class/${c.id}`} style={{ color: "#0066cc", textDecoration: "none", fontWeight: 600 }}>
+                <h3 className="mb-2 font-semibold text-gray-900 transition-colors group-hover:text-primary">
                   {c.name}
-                </Link>
+                </h3>
                 {c.description && (
-                  <p style={{ margin: "0.25rem 0 0", color: "#666", fontSize: "0.9rem" }}>
+                  <p className="line-clamp-2 text-sm text-gray-600">
                     {c.description}
                   </p>
                 )}
-              </li>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </ProtectedRoute>

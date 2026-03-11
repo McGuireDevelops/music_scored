@@ -45,102 +45,120 @@ export default function SignIn() {
     }
   };
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
+
   return (
-    <div style={{ maxWidth: "400px", margin: "0 auto" }}>
-      <h2>{mode === "signin" ? "Sign in" : "Create account"}</h2>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {mode === "signup" && (
-          <div>
-            <label htmlFor="displayName" style={{ display: "block", marginBottom: "0.25rem" }}>
-              Display name
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your name"
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="rounded-card border border-gray-200 bg-white p-8 shadow-card">
+          <h2 className="mb-6 text-2xl font-semibold tracking-tight text-gray-900">
+            {mode === "signin" ? "Sign in" : "Create account"}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "signup" && (
+              <div>
+                <label htmlFor="displayName" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Display name
+                </label>
+                <input
+                  id="displayName"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your name"
+                  className={inputClass}
+                />
+              </div>
+            )}
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                minLength={mode === "signup" ? 6 : undefined}
+                className={inputClass}
+              />
+              {mode === "signup" && (
+                <p className="mt-1 text-sm text-gray-500">Min 6 characters</p>
+              )}
+            </div>
+            {error && (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-primary px-4 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+            </button>
+          </form>
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-sm text-gray-500">or</span>
+            <div className="h-px flex-1 bg-gray-200" />
           </div>
-        )}
-        <div>
-          <label htmlFor="email" style={{ display: "block", marginBottom: "0.25rem" }}>
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            style={{ width: "100%", padding: "0.5rem" }}
-          />
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Sign in with Google
+          </button>
         </div>
-        <div>
-          <label htmlFor="password" style={{ display: "block", marginBottom: "0.25rem" }}>
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            minLength={mode === "signup" ? 6 : undefined}
-            style={{ width: "100%", padding: "0.5rem" }}
-          />
-          {mode === "signup" && (
-            <small style={{ color: "#666" }}>Min 6 characters</small>
+        <p className="mt-6 text-center text-sm text-gray-600">
+          {mode === "signin" ? (
+            <>
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                onClick={() => { setMode("signup"); setError(""); }}
+                className="font-medium text-primary hover:underline"
+              >
+                Create account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => { setMode("signin"); setError(""); }}
+                className="font-medium text-primary hover:underline"
+              >
+                Sign in
+              </button>
+            </>
           )}
-        </div>
-        {error && (
-          <div style={{ color: "#c00", fontSize: "0.9rem" }}>{error}</div>
-        )}
-        <button type="submit" disabled={loading} style={{ padding: "0.5rem 1rem", cursor: loading ? "not-allowed" : "pointer" }}>
-          {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
-        </button>
-      </form>
-      <div style={{ marginTop: "1.5rem", textAlign: "center", color: "#666" }}>
-        or
+        </p>
+        <p className="mt-4 text-center">
+          <Link to="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            Back to home
+          </Link>
+        </p>
       </div>
-      <button
-        onClick={handleGoogleSignIn}
-        disabled={loading}
-        style={{ width: "100%", marginTop: "1rem", padding: "0.5rem 1rem", cursor: loading ? "not-allowed" : "pointer" }}
-      >
-        Sign in with Google
-      </button>
-      <p style={{ marginTop: "1.5rem", textAlign: "center" }}>
-        {mode === "signin" ? (
-          <>
-            Don't have an account?{" "}
-            <button
-              type="button"
-              onClick={() => { setMode("signup"); setError(""); }}
-              style={{ background: "none", border: "none", color: "#0066cc", cursor: "pointer", textDecoration: "underline" }}
-            >
-              Create account
-            </button>
-          </>
-        ) : (
-          <>
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => { setMode("signin"); setError(""); }}
-              style={{ background: "none", border: "none", color: "#0066cc", cursor: "pointer", textDecoration: "underline" }}
-            >
-              Sign in
-            </button>
-          </>
-        )}
-      </p>
-      <p style={{ marginTop: "1rem", textAlign: "center" }}>
-        <Link to="/" style={{ color: "#666" }}>Back to home</Link>
-      </p>
     </div>
   );
 }

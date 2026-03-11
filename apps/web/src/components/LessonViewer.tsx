@@ -21,16 +21,18 @@ function MediaRefBlock({ mediaRef }: { mediaRef: MediaReference }) {
 
 export function LessonViewer({ lesson }: LessonViewerProps) {
   return (
-    <div style={{ maxWidth: 720 }}>
-      <h3>{lesson.title}</h3>
+    <div className="max-w-3xl">
+      <h3 className="mb-4 text-lg font-semibold tracking-tight text-gray-900">
+        {lesson.title}
+      </h3>
       {lesson.content && (
         <div
-          style={{ marginBottom: "1.5rem", whiteSpace: "pre-wrap" }}
+          className="mb-6 max-w-none whitespace-pre-wrap text-gray-700 leading-relaxed"
           dangerouslySetInnerHTML={{ __html: lesson.content }}
         />
       )}
       {lesson.mediaRefs?.map((mediaRef, i) => (
-        <div key={i} style={{ marginBottom: "1.5rem" }}>
+        <div key={i} className="mb-6 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
           <MediaRefBlock mediaRef={mediaRef} />
         </div>
       ))}

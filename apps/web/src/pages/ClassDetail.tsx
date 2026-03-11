@@ -9,11 +9,22 @@ import { useModuleLessons } from "../hooks/useModuleLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
 import { LessonViewer } from "../components/LessonViewer";
+import { TabBar } from "../components/dashboard/TabBar";
+import { ModuleNav } from "../components/dashboard/ModuleNav";
+import { ContentPane } from "../components/dashboard/ContentPane";
 import { formatUtcForDisplay } from "../utils/timezone";
 import type { ModuleWithId } from "../hooks/useClassModules";
 import type { LessonWithId } from "../hooks/useModuleLessons";
 
 type Tab = "curriculum" | "assignments" | "quizzes" | "community" | "portfolio";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "curriculum", label: "Modules" },
+  { id: "assignments", label: "Assignments" },
+  { id: "quizzes", label: "Quizzes" },
+  { id: "community", label: "Community" },
+  { id: "portfolio", label: "Portfolio" },
+];
 
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
@@ -63,90 +74,93 @@ export default function ClassDetail() {
       <div>
         <Link
           to={isTeacherRoute ? "/teacher" : "/student"}
-          style={{ color: "#666", marginBottom: "1rem", display: "inline-block" }}
+          className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
         >
           ← Back to dashboard
         </Link>
-        {loading && <p>Loading…</p>}
-        {!loading && !className && <p>Class not found.</p>}
+        {loading && <p className="text-gray-500">Loading…</p>}
+        {!loading && !className && (
+          <p className="text-gray-600">Class not found.</p>
+        )}
         {!loading && className && (
           <>
-            <h2>{className}</h2>
-            {isTeacherRoute && (
-              <Link
-                to={`/teacher/class/${id}/rubrics`}
-                style={{ marginLeft: "1rem", fontSize: "0.9rem" }}
-              >
-                Manage rubrics
-              </Link>
-            )}
-            <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
-              {(["curriculum", "assignments", "quizzes", "community", "portfolio"] as const).map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      fontWeight: activeTab === tab ? 600 : 400,
-                    }}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                )
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+                {className}
+              </h1>
+              {isTeacherRoute && (
+                <Link
+                  to={`/teacher/class/${id}/rubrics`}
+                  className="text-sm font-medium text-primary no-underline hover:underline"
+                >
+                  Manage rubrics
+                </Link>
               )}
             </div>
-
-            {activeTab === "curriculum" && (
-              <CurriculumTab
-                isTeacher={isTeacherRoute}
-                modules={modules}
-                lessons={lessons}
-                modulesLoading={modulesLoading}
-                lessonsLoading={lessonsLoading}
-                selectedModule={selectedModule}
-                setSelectedModule={setSelectedModule}
-                selectedLesson={selectedLesson}
-                setSelectedLesson={setSelectedLesson}
-                createModule={createModule}
-                createLesson={createLesson}
-                deleteModule={deleteModule}
-                classId={id!}
-                userId={user?.uid ?? ""}
-              />
-            )}
-
-            {activeTab === "quizzes" && (
-              <QuizzesTab
-                quizzes={quizzes}
-                loading={quizzesLoading}
-                classId={id!}
-                isTeacher={isTeacherRoute}
-              />
-            )}
-
-            {activeTab === "assignments" && (
-              <AssignmentsTab
-                assignments={assignments}
-                loading={assignmentsLoading}
-                classId={id!}
-                isTeacher={isTeacherRoute}
-                createAssignment={createAssignment}
-                userId={user?.uid ?? ""}
-              />
-            )}
-
-            {activeTab === "community" && (
-              <p>
-                Community: <Link to={`/${isTeacherRoute ? "teacher" : "student"}/class/${id}/community`}>View discussions</Link>
-              </p>
-            )}
-
-            {activeTab === "portfolio" && !isTeacherRoute && (
-              <p>
-                Portfolio: <Link to="/student/portfolio">Manage portfolio</Link>
-              </p>
-            )}
+            <TabBar
+              tabs={TABS.filter((t) => t.id !== "portfolio" || !isTeacherRoute)}
+              activeTab={activeTab}
+              onTabChange={(tabId) => setActiveTab(tabId as Tab)}
+            />
+            <div className="mt-6">
+              {activeTab === "curriculum" && (
+                <CurriculumTab
+                  isTeacher={isTeacherRoute}
+                  modules={modules}
+                  lessons={lessons}
+                  modulesLoading={modulesLoading}
+                  lessonsLoading={lessonsLoading}
+                  modulesError={modulesError}
+                  selectedModule={selectedModule}
+                  setSelectedModule={setSelectedModule}
+                  selectedLesson={selectedLesson}
+                  setSelectedLesson={setSelectedLesson}
+                  createModule={createModule}
+                  createLesson={createLesson}
+                  deleteModule={deleteModule}
+                  classId={id!}
+                  userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "quizzes" && (
+                <QuizzesTab
+                  quizzes={quizzes}
+                  loading={quizzesLoading}
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                />
+              )}
+              {activeTab === "assignments" && (
+                <AssignmentsTab
+                  assignments={assignments}
+                  loading={assignmentsLoading}
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                  createAssignment={createAssignment}
+                  userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "community" && (
+                <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+                  <Link
+                    to={`/${isTeacherRoute ? "teacher" : "student"}/class/${id}/community`}
+                    className="font-medium text-primary no-underline hover:underline"
+                  >
+                    View discussions →
+                  </Link>
+                </div>
+              )}
+              {activeTab === "portfolio" && !isTeacherRoute && (
+                <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+                  <Link
+                    to="/student/portfolio"
+                    className="font-medium text-primary no-underline hover:underline"
+                  >
+                    Manage portfolio →
+                  </Link>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -160,6 +174,7 @@ function CurriculumTab({
   lessons,
   modulesLoading,
   lessonsLoading,
+  modulesError,
   selectedModule,
   setSelectedModule,
   selectedLesson,
@@ -175,6 +190,7 @@ function CurriculumTab({
   lessons: LessonWithId[];
   modulesLoading: boolean;
   lessonsLoading: boolean;
+  modulesError: string | null;
   selectedModule: ModuleWithId | null;
   setSelectedModule: (m: ModuleWithId | null) => void;
   selectedLesson: LessonWithId | null;
@@ -185,22 +201,12 @@ function CurriculumTab({
   classId: string;
   userId: string;
 }) {
-  const [newModuleName, setNewModuleName] = useState("");
   const [newLessonTitle, setNewLessonTitle] = useState("");
   const [newLessonType, setNewLessonType] = useState<"video" | "audio" | "score" | "text">("text");
-  const [creating, setCreating] = useState(false);
   const [creatingLesson, setCreatingLesson] = useState(false);
 
-  const handleCreateModule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newModuleName.trim()) return;
-    setCreating(true);
-    try {
-      await createModule({ name: newModuleName.trim(), releaseMode: "time-released" });
-      setNewModuleName("");
-    } finally {
-      setCreating(false);
-    }
+  const handleCreateModule = async (name: string) => {
+    await createModule({ name, releaseMode: "time-released" });
   };
 
   const handleCreateLesson = async (e: React.FormEvent) => {
@@ -225,117 +231,89 @@ function CurriculumTab({
   };
 
   return (
-    <div style={{ display: "flex", gap: "2rem" }}>
-      <div style={{ minWidth: 240 }}>
-        <h3>Modules</h3>
-        {modulesLoading && <p>Loading…</p>}
-        {!modulesLoading && modules.length === 0 && (
-          <p>No modules yet.</p>
+    <div className="flex flex-col gap-6 lg:flex-row">
+      <ModuleNav
+        modules={modules}
+        loading={modulesLoading}
+        selectedModule={selectedModule}
+        onSelectModule={(m) => {
+          setSelectedModule(m);
+          setSelectedLesson(null);
+        }}
+        isTeacher={isTeacher}
+        onCreateModule={handleCreateModule}
+        onDeleteModule={deleteModule}
+      />
+      <ContentPane
+        breadcrumb={selectedModule ? "Course content" : undefined}
+        title={selectedModule?.name}
+      >
+        {!selectedModule && (
+          <p className="text-gray-600">Select a module to view its content.</p>
         )}
-        {!modulesLoading &&
-          modules.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                padding: "0.5rem",
-                marginBottom: "0.25rem",
-                background: selectedModule?.id === m.id ? "#e8e8e8" : "#f5f5f5",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-            >
-              <div
-                onClick={() => {
-                  setSelectedModule(m);
-                  setSelectedLesson(null);
-                }}
-              >
-                {m.name}
-              </div>
-              {isTeacher && (
-                <button
-                  onClick={() => deleteModule(m.id)}
-                  style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}
-                >
-                  Delete
-                </button>
-              )}
-            </div>
-          ))}
-        {isTeacher && (
-          <form onSubmit={handleCreateModule} style={{ marginTop: "1rem" }}>
-            <input
-              placeholder="New module name"
-              value={newModuleName}
-              onChange={(e) => setNewModuleName(e.target.value)}
-              style={{ marginRight: "0.5rem", padding: "0.35rem" }}
-            />
-            <button type="submit" disabled={creating}>
-              Add
-            </button>
-          </form>
-        )}
-      </div>
-      <div style={{ flex: 1 }}>
         {selectedModule && (
           <>
-            <h3>{selectedModule.name}</h3>
-            {modulesError && <p style={{ color: "#c00" }}>{modulesError}</p>}
-            {lessonsLoading && <p>Loading lessons…</p>}
+            {modulesError && (
+              <p className="mb-4 text-sm text-red-600">{modulesError}</p>
+            )}
+            {lessonsLoading && <p className="text-gray-500">Loading lessons…</p>}
             {!lessonsLoading && lessons.length === 0 && !isTeacher && (
-              <p>No lessons in this module.</p>
+              <p className="text-gray-600">No lessons in this module.</p>
             )}
             {isTeacher && selectedModule && (
-              <form onSubmit={handleCreateLesson} style={{ marginBottom: "1rem" }}>
+              <form onSubmit={handleCreateLesson} className="mb-6 flex flex-wrap gap-2">
                 <input
+                  type="text"
                   placeholder="Lesson title"
                   value={newLessonTitle}
                   onChange={(e) => setNewLessonTitle(e.target.value)}
-                  style={{ marginRight: "0.5rem", padding: "0.35rem" }}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
                 <select
                   value={newLessonType}
                   onChange={(e) => setNewLessonType(e.target.value as typeof newLessonType)}
-                  style={{ marginRight: "0.5rem", padding: "0.35rem" }}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="text">Text</option>
                   <option value="video">Video</option>
                   <option value="audio">Audio</option>
                   <option value="score">Score</option>
                 </select>
-                <button type="submit" disabled={creatingLesson}>
-                  Add lesson
+                <button
+                  type="submit"
+                  disabled={creatingLesson}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {creatingLesson ? "Adding…" : "Add lesson"}
                 </button>
               </form>
             )}
             {!lessonsLoading && lessons.length > 0 && (
-              <ul style={{ listStyle: "none", padding: 0 }}>
+              <div className="space-y-2">
                 {lessons.map((l) => (
-                  <li
+                  <button
                     key={l.id}
+                    type="button"
                     onClick={() => setSelectedLesson(l)}
-                    style={{
-                      padding: "0.5rem",
-                      marginBottom: "0.25rem",
-                      background: selectedLesson?.id === l.id ? "#e8e8e8" : "#f5f5f5",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
+                    className={`block w-full rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                      selectedLesson?.id === l.id
+                        ? "bg-gray-100 font-medium text-gray-900"
+                        : "text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     {l.title}
-                  </li>
+                  </button>
                 ))}
-              </ul>
+              </div>
             )}
             {selectedLesson && (
-              <div style={{ marginTop: "2rem", padding: "1rem", background: "#fafafa" }}>
+              <div className="mt-8 border-t border-gray-200 pt-6">
                 <LessonViewer lesson={selectedLesson} />
               </div>
             )}
           </>
         )}
-        {!selectedModule && <p>Select a module.</p>}
-      </div>
+      </ContentPane>
     </div>
   );
 }
@@ -352,34 +330,33 @@ function QuizzesTab({
   isTeacher: boolean;
 }) {
   return (
-    <div>
-      <h3>Quizzes</h3>
+    <ContentPane title="Quizzes">
       {isTeacher && (
-        <Link to={`/teacher/class/${classId}/quizzes`} style={{ display: "inline-block", marginBottom: "1rem" }}>
-          Manage quizzes
+        <Link
+          to={`/teacher/class/${classId}/quizzes`}
+          className="mb-4 inline-block font-medium text-primary no-underline hover:underline"
+        >
+          Manage quizzes →
         </Link>
       )}
-      {loading && <p>Loading…</p>}
-      {!loading && quizzes.length === 0 && <p>No quizzes yet.</p>}
-      {!loading &&
-        quizzes.map((q) => (
-          <div
-            key={q.id}
-            style={{
-              padding: "1rem",
-              marginBottom: "0.5rem",
-              background: "#f5f5f5",
-              borderRadius: 8,
-            }}
-          >
-            {isTeacher ? (
-              <Link to={`/teacher/class/${classId}/quiz/${q.id}/edit`}>{q.title}</Link>
-            ) : (
-              <Link to={`/student/class/${classId}/quiz/${q.id}`}>{q.title}</Link>
-            )}
-          </div>
-        ))}
-    </div>
+      {loading && <p className="text-gray-500">Loading…</p>}
+      {!loading && quizzes.length === 0 && (
+        <p className="text-gray-600">No quizzes yet.</p>
+      )}
+      {!loading && quizzes.length > 0 && (
+        <div className="space-y-3">
+          {quizzes.map((q) => (
+            <Link
+              key={q.id}
+              to={isTeacher ? `/teacher/class/${classId}/quizzes` : `/student/class/${classId}/quiz/${q.id}`}
+              className="block rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary/20 hover:shadow-card"
+            >
+              <span className="font-medium text-gray-900">{q.title}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </ContentPane>
   );
 }
 
@@ -410,7 +387,7 @@ function AssignmentsTab({
       await createAssignment(
         {
           classId,
-          moduleId: "", // could add module selector
+          moduleId: "",
           ownerId: userId,
           title: newTitle.trim(),
           brief: newBrief.trim() || "No brief provided.",
@@ -425,56 +402,71 @@ function AssignmentsTab({
   };
 
   return (
-    <div>
-      <h3>Assignments</h3>
+    <ContentPane title="Assignments">
       {isTeacher && createAssignment && (
-        <form onSubmit={handleCreate} style={{ marginBottom: "1rem" }}>
-          <input
-            placeholder="Assignment title"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            style={{ display: "block", marginBottom: "0.5rem", padding: "0.35rem" }}
-          />
-          <textarea
-            placeholder="Brief"
-            value={newBrief}
-            onChange={(e) => setNewBrief(e.target.value)}
-            style={{ display: "block", marginBottom: "0.5rem", padding: "0.35rem", width: "100%", minHeight: 60 }}
-          />
-          <button type="submit" disabled={creating}>
+        <form onSubmit={handleCreate} className="mb-6 max-w-md space-y-4">
+          <div>
+            <label htmlFor="assign-title" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Assignment title
+            </label>
+            <input
+              id="assign-title"
+              type="text"
+              placeholder="e.g. Film Score Analysis"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label htmlFor="assign-brief" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Brief
+            </label>
+            <textarea
+              id="assign-brief"
+              placeholder="Assignment instructions..."
+              value={newBrief}
+              onChange={(e) => setNewBrief(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
             {creating ? "Creating…" : "Create assignment"}
           </button>
         </form>
       )}
-      {loading && <p>Loading…</p>}
-      {!loading && assignments.length === 0 && <p>No assignments yet.</p>}
-      {!loading &&
-        assignments.map((a) => (
-          <div
-            key={a.id}
-            style={{
-              padding: "1rem",
-              marginBottom: "0.5rem",
-              background: "#f5f5f5",
-              borderRadius: 8,
-            }}
-          >
-            <Link to={`${isTeacher ? "/teacher" : "/student"}/class/${classId}/assignment/${a.id}`}>
-              <strong>{a.title}</strong>
+      {loading && <p className="text-gray-500">Loading…</p>}
+      {!loading && assignments.length === 0 && (
+        <p className="text-gray-600">No assignments yet.</p>
+      )}
+      {!loading && assignments.length > 0 && (
+        <div className="space-y-4">
+          {assignments.map((a) => (
+            <Link
+              key={a.id}
+              to={`${isTeacher ? "/teacher" : "/student"}/class/${classId}/assignment/${a.id}`}
+              className="block rounded-lg border border-gray-200 p-4 transition-colors hover:border-primary/20 hover:shadow-card"
+            >
+              <strong className="text-gray-900">{a.title}</strong>
+              {a.deadline && (
+                <p className="mt-1 text-sm text-gray-600">
+                  Due: {formatUtcForDisplay(a.deadline)}
+                </p>
+              )}
+              {a.brief && (
+                <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+                  {a.brief}
+                </p>
+              )}
             </Link>
-            {a.deadline && (
-              <p style={{ fontSize: "0.9rem", color: "#666", margin: 0 }}>
-                Due: {formatUtcForDisplay(a.deadline)}
-              </p>
-            )}
-            {a.brief && (
-              <p style={{ margin: "0.5rem 0 0", fontSize: "0.9rem" }}>
-                {a.brief.slice(0, 150)}
-                {a.brief.length > 150 ? "…" : ""}
-              </p>
-            )}
-          </div>
-        ))}
-    </div>
+          ))}
+        </div>
+      )}
+    </ContentPane>
   );
 }

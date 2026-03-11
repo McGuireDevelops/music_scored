@@ -10,35 +10,46 @@ export default function StudentDashboard() {
   return (
     <ProtectedRoute requiredRole="student">
       <div>
-        <h2>Student Dashboard</h2>
-        {loading && <p>Loading your classes…</p>}
-        {error && <p style={{ color: "#c00" }}>{error}</p>}
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-gray-900">
+          Courses
+        </h1>
+        <p className="mb-8 text-gray-600">
+          Your enrolled classes and learning materials
+        </p>
+        {loading && (
+          <p className="text-gray-500">Loading your classes…</p>
+        )}
+        {error && (
+          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         {!loading && !error && classes.length === 0 && (
-          <p>You don&apos;t have any classes yet. Ask your teacher for an access grant.</p>
+          <div className="rounded-card max-w-md border border-gray-200 bg-white p-8 shadow-card">
+            <p className="text-gray-600">
+              You don&apos;t have any classes yet. Ask your teacher for an access grant.
+            </p>
+          </div>
         )}
         {!loading && classes.length > 0 && (
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {classes.map((c) => (
-              <li
+              <Link
                 key={c.id}
-                style={{
-                  padding: "1rem",
-                  marginBottom: "0.5rem",
-                  background: "#f5f5f5",
-                  borderRadius: "8px",
-                }}
+                to={`/student/class/${c.id}`}
+                className="group rounded-card border border-gray-200 bg-white p-6 shadow-card transition-all duration-200 hover:border-primary/20 hover:shadow-cardHover"
               >
-                <Link to={`/student/class/${c.id}`} style={{ color: "#0066cc", textDecoration: "none", fontWeight: 600 }}>
+                <h3 className="mb-2 font-semibold text-gray-900 transition-colors group-hover:text-primary">
                   {c.name}
-                </Link>
+                </h3>
                 {c.description && (
-                  <p style={{ margin: "0.25rem 0 0", color: "#666", fontSize: "0.9rem" }}>
+                  <p className="line-clamp-2 text-sm text-gray-600">
                     {c.description}
                   </p>
                 )}
-              </li>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </ProtectedRoute>

@@ -57,43 +57,70 @@ export default function AdminDashboard() {
   return (
     <ProtectedRoute requiredRole="admin">
       <div>
-        <h2>Admin Dashboard</h2>
-        <p>Manage user roles. Only users with admin role can access this page.</p>
-        {loading && <p>Loading users…</p>}
-        {error && <p style={{ color: "#c00" }}>{error}</p>}
+        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-gray-900">
+          Admin
+        </h1>
+        <p className="mb-8 text-gray-600">
+          Manage user roles. Only users with admin role can access this page.
+        </p>
+        {loading && <p className="text-gray-500">Loading users…</p>}
+        {error && (
+          <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
         {!loading && !error && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #333" }}>
-                  <th style={{ textAlign: "left", padding: "0.5rem" }}>Email</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem" }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem" }}>Role</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "0.5rem" }}>{u.email ?? "—"}</td>
-                    <td style={{ padding: "0.5rem" }}>{u.displayName ?? "—"}</td>
-                    <td style={{ padding: "0.5rem" }}>{u.role}</td>
-                    <td style={{ padding: "0.5rem" }}>
-                      <select
-                        value={u.role}
-                        onChange={(e) => setRole(u.id, e.target.value)}
-                        disabled={updating === u.id}
-                        style={{ padding: "0.25rem" }}
-                      >
-                        <option value="student">student</option>
-                        <option value="teacher">teacher</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    </td>
+          <div className="overflow-hidden rounded-card border border-gray-200 bg-white shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/80">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Role
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr
+                      key={u.id}
+                      className="border-b border-gray-100 transition-colors last:border-b-0 hover:bg-gray-50/50"
+                    >
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {u.email ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {u.displayName ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {u.role}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={u.role}
+                          onChange={(e) => setRole(u.id, e.target.value)}
+                          disabled={updating === u.id}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                        >
+                          <option value="student">student</option>
+                          <option value="teacher">teacher</option>
+                          <option value="admin">admin</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

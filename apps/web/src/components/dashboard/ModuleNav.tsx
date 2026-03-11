@@ -86,10 +86,11 @@ export function ModuleNav({
       )}
       {!loading && modules.length > 0 && (
         <nav className="space-y-0.5">
-          {modules.map((m) => {
+          {modules.map((m, index) => {
             const status = getModuleStatus(m, selectedModule?.id ?? null);
             const isLocked = status === "locked";
             const isSelected = selectedModule?.id === m.id;
+            const displayName = `Module ${index + 1}: ${m.name}`;
 
             return (
               <div key={m.id} className="flex flex-col">
@@ -106,14 +107,14 @@ export function ModuleNav({
                     }`}
                   >
                     <StatusIcon status={status} />
-                    <span className="min-w-0 truncate">{m.name}</span>
+                    <span className="min-w-0 truncate">{displayName}</span>
                   </button>
                   {isTeacher && onDeleteModule && (
                     <button
                       type="button"
                       onClick={() => onDeleteModule(m.id)}
                       className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600"
-                      aria-label={`Delete ${m.name}`}
+                      aria-label={`Delete ${displayName}`}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

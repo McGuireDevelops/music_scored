@@ -45,3 +45,9 @@ export const saveAnalysisSnapshotSchema = z.object({
   payload: z.record(z.string(), z.unknown()),
   editedByTeacher: z.boolean().optional(),
 });
+
+export const generateLessonSummarySchema = z.object({
+  lessonId: z.string().min(1).max(MAX_STRING_LENGTH).optional(),
+  title: z.string().max(MAX_STRING_LENGTH).optional(),
+  content: z.string().max(50000).optional(),
+});

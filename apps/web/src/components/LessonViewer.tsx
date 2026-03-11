@@ -1,6 +1,6 @@
 import DOMPurify from "dompurify";
 import type { LessonWithId } from "../hooks/useModuleLessons";
-import { AudioPlayer, VideoPlayer, ScoreViewer } from "./media";
+import { AudioPlayer, VideoPlayer, ScoreViewer, ImageViewer } from "./media";
 import type { MediaReference } from "@learning-scores/shared";
 
 interface LessonViewerProps {
@@ -15,6 +15,8 @@ function MediaRefBlock({ mediaRef }: { mediaRef: MediaReference }) {
       return <VideoPlayer mediaRef={mediaRef} />;
     case "score":
       return <ScoreViewer mediaRef={mediaRef} />;
+    case "image":
+      return <ImageViewer mediaRef={mediaRef} />;
     default:
       return null;
   }
@@ -26,6 +28,9 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
       <h3 className="mb-4 text-lg font-semibold tracking-tight text-gray-900">
         {lesson.title}
       </h3>
+      {lesson.summary && (
+        <p className="mb-4 text-sm italic text-gray-600">{lesson.summary}</p>
+      )}
       {lesson.content && (
         <div
           className="mb-6 max-w-none whitespace-pre-wrap text-gray-700 leading-relaxed"

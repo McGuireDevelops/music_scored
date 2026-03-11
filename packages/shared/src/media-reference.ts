@@ -3,7 +3,7 @@
  * Used in lessons, feedback, assignments, rubric examples
  */
 
-export type MediaReferenceType = "audio" | "video" | "score";
+export type MediaReferenceType = "audio" | "video" | "score" | "image";
 
 export interface MediaReference {
   type: MediaReferenceType;

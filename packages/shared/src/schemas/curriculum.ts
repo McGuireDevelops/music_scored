@@ -33,8 +33,10 @@ export const lessonSchema = z.object({
   title: z.string().min(1),
   type: z.enum(["video", "audio", "score", "text"]),
   content: z.string().optional(),
+  summary: z.string().optional(),
   mediaRefs: z.array(mediaReferenceSchema).optional(),
   order: z.number().optional(),
+  version: z.number().optional(),
 });
 
 export const liveLessonSchema = z.object({

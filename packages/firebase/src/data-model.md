@@ -12,7 +12,9 @@
 | `classes/{id}/enrollments` | userId, cohortId?, status | Subcollection; enrollmentId = userId |
 | `curricula` | classId | Linked to class |
 | `modules` | classId, curriculumId?, name, releaseMode, releasedAt?, order? | Time-released or mastery-based |
-| `lessons` | classId, moduleId, ownerId, title, type, content?, mediaRefs? | Recorded lessons |
+| `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version? | Recorded lessons; mediaRefs may include video/audio/score/image |
+| `lessons/{id}/lessonVersions` | version, title, content, summary, mediaRefs, timestamp | Version history when teacher saves as new version |
+| `lessonPlacements` | moduleId, classId, order, linkType, lessonId?, sourceLessonId?, sourceClassId? | Attached/cloned lessons; linkType: owned, attached, cloned |
 | `liveLessons` | classId, ownerId, title, scheduledAt, duration?, cohortIds? | Scheduled live |
 | `assignments` | classId, moduleId, ownerId, title, brief, deadline?, rubricId? | Per module |
 | `assignments/{id}/submissions` | userId, mediaRefs?, decisionLog?, submittedAt | One per student |

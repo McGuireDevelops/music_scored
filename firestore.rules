@@ -131,6 +131,17 @@ service cloud.firestore {
       allow write: if isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid;
     }
 
+    // Lesson placements (attach/clone across modules)
+    match /lessonPlacements/{placementId} {
+      allow read: if request.auth != null && (
+        isClassTeacher(resource.data.classId)
+        || studentCanAccessClassContent(resource.data.classId)
+        || isAdmin()
+      );
+      allow create: if isTeacher() && isClassTeacher(request.resource.data.classId);
+      allow update, delete: if isTeacher() && isClassTeacher(resource.data.classId);
+    }
+
     // Lessons (recorded)
     match /lessons/{lessonId} {
       allow read: if request.auth != null && (
@@ -139,6 +150,10 @@ service cloud.firestore {
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+
+      match /lessonVersions/{versionId} {
+        allow read, write: if isTeacher() && get(/databases/$(database)/documents/lessons/$(lessonId)).data.ownerId == request.auth.uid;
+      }
     }
 
     // Live lessons

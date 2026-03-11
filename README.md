@@ -31,6 +31,10 @@ Production-grade learning platform for film music education by McGuireDevelops. 
 
 See **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for Vercel and Firebase setup.
 
+## Security & Privacy
+
+See **[SECURITY.md](./SECURITY.md)** for security architecture, rules, and practices. See **[PRIVACY.md](./PRIVACY.md)** for data collection and user rights.
+
 ## Build & run
 
 ```bash

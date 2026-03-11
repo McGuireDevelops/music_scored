@@ -5,7 +5,8 @@ import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useClassModules } from "../hooks/useClassModules";
-import { useModuleLessons } from "../hooks/useModuleLessons";
+import { useModuleLessonsWithAttached } from "../hooks/useModuleLessonsWithAttached";
+import { useTeacherLessons } from "../hooks/useTeacherLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
 import { useClassLiveLessons } from "../hooks/useLiveLessons";
@@ -14,6 +15,22 @@ import { useClassEnrollments } from "../hooks/useEnrollments";
 import { useIssueCertification } from "../hooks/useCertifications";
 import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { LessonViewer } from "../components/LessonViewer";
+import { LessonBuilderForm } from "../components/LessonBuilderForm";
+import { SortableLessonItem } from "../components/SortableLessonItem";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { TabBar } from "../components/dashboard/TabBar";
 import { ModuleNav } from "../components/dashboard/ModuleNav";
 import { ContentPane } from "../components/dashboard/ContentPane";
@@ -56,9 +73,18 @@ export default function ClassDetail() {
     deleteModule,
   } = useClassModules(id);
 
-  const { lessons, loading: lessonsLoading, createLesson } = useModuleLessons(
-    id,
-    selectedModule?.id
+  const {
+    lessons,
+    allItems,
+    loading: lessonsLoading,
+    createLesson,
+    updateLesson,
+    reorderLessons,
+    attachLesson,
+  } = useModuleLessonsWithAttached(id, selectedModule?.id);
+
+  const { lessons: teacherLessons } = useTeacherLessons(
+    isTeacherRoute ? user?.uid : undefined
   );
 
   const {
@@ -156,6 +182,8 @@ export default function ClassDetail() {
                   isTeacher={isTeacherRoute}
                   modules={modules}
                   lessons={lessons}
+                  allItems={allItems}
+                  teacherLessons={teacherLessons}
                   modulesLoading={modulesLoading}
                   lessonsLoading={lessonsLoading}
                   modulesError={modulesError}
@@ -165,6 +193,9 @@ export default function ClassDetail() {
                   setSelectedLesson={setSelectedLesson}
                   createModule={createModule}
                   createLesson={createLesson}
+                  updateLesson={updateLesson}
+                  reorderLessons={reorderLessons}
+                  attachLesson={attachLesson}
                   deleteModule={deleteModule}
                   classId={id!}
                   userId={user?.uid ?? ""}
@@ -265,6 +296,8 @@ function CurriculumTab({
   isTeacher,
   modules,
   lessons,
+  allItems,
+  teacherLessons,
   modulesLoading,
   lessonsLoading,
   modulesError,
@@ -274,6 +307,9 @@ function CurriculumTab({
   setSelectedLesson,
   createModule,
   createLesson,
+  updateLesson,
+  reorderLessons,
+  attachLesson,
   deleteModule,
   classId,
   userId,
@@ -281,6 +317,8 @@ function CurriculumTab({
   isTeacher: boolean;
   modules: ModuleWithId[];
   lessons: LessonWithId[];
+  allItems: import("../hooks/useModuleLessonsWithAttached").ModuleLessonItem[];
+  teacherLessons: import("../hooks/useTeacherLessons").TeacherLessonEnriched[];
   modulesLoading: boolean;
   lessonsLoading: boolean;
   modulesError: string | null;
@@ -290,38 +328,90 @@ function CurriculumTab({
   setSelectedLesson: (l: LessonWithId | null) => void;
   createModule: (data: { name: string; releaseMode: "time-released" | "mastery-based" }) => Promise<void>;
   createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
+  updateLesson: (lessonId: string, data: Partial<LessonWithId>) => Promise<void>;
+  reorderLessons: (fromIndex: number, toIndex: number) => Promise<void>;
+  attachLesson: (sourceLessonId: string, sourceClassId: string) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
   classId: string;
   userId: string;
 }) {
-  const [newLessonTitle, setNewLessonTitle] = useState("");
-  const [newLessonType, setNewLessonType] = useState<"video" | "audio" | "score" | "text">("text");
-  const [creatingLesson, setCreatingLesson] = useState(false);
+  const [showLessonForm, setShowLessonForm] = useState<"create" | "edit" | null>(null);
+  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const handleCreateModule = async (name: string) => {
     await createModule({ name, releaseMode: "time-released" });
   };
 
-  const handleCreateLesson = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedModule || !newLessonTitle.trim() || !userId) return;
-    setCreatingLesson(true);
-    try {
+  const handleCloneLesson = async (source: LessonWithId) => {
+    if (!selectedModule || !userId) return;
+    await createLesson(
+      {
+        classId,
+        moduleId: selectedModule.id,
+        ownerId: userId,
+        title: source.title,
+        type: source.type,
+        content: source.content,
+        summary: source.summary,
+        mediaRefs: source.mediaRefs,
+        order: lessons.length,
+      },
+      userId
+    );
+  };
+
+  const handleSaveLesson = async (
+    data: {
+      title: string;
+      content?: string;
+      summary?: string;
+      type: "video" | "audio" | "score" | "text";
+      mediaRefs?: import("@learning-scores/shared").MediaReference[];
+    },
+    updateMode?: import("../components/LessonBuilderForm").LessonUpdateMode
+  ) => {
+    if (!selectedModule || !userId) return;
+    if (showLessonForm === "create" || !selectedLesson) {
       await createLesson(
         {
           classId,
           moduleId: selectedModule.id,
           ownerId: userId,
-          title: newLessonTitle.trim(),
-          type: newLessonType,
+          title: data.title,
+          type: data.type,
+          content: data.content,
+          summary: data.summary,
+          mediaRefs: data.mediaRefs,
+          order: lessons.length,
         },
         userId
       );
-      setNewLessonTitle("");
-    } finally {
-      setCreatingLesson(false);
+    } else {
+      await updateLesson(selectedLesson.id, {
+        title: data.title,
+        content: data.content,
+        summary: data.summary,
+        type: data.type,
+        mediaRefs: data.mediaRefs,
+      }, updateMode);
     }
+    setShowLessonForm(null);
+    setSelectedLesson(null);
   };
+
+  const contentPaneTitle = selectedModule
+    ? (() => {
+        const idx = modules.findIndex((m) => m.id === selectedModule.id);
+        return idx >= 0 ? `Module ${idx + 1}: ${selectedModule.name}` : selectedModule.name;
+      })()
+    : undefined;
 
   return (
     <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:items-start lg:gap-8">
@@ -337,10 +427,7 @@ function CurriculumTab({
         onCreateModule={handleCreateModule}
         onDeleteModule={deleteModule}
       />
-      <ContentPane
-        breadcrumb={selectedModule ? "Course content" : undefined}
-        title={selectedModule?.name}
-      >
+      <ContentPane breadcrumb={selectedModule ? "Course content" : undefined} title={contentPaneTitle}>
         {!selectedModule && (
           <p className="text-gray-600">Select a module to view its content.</p>
         )}
@@ -350,57 +437,123 @@ function CurriculumTab({
               <p className="mb-4 text-sm text-red-600">{modulesError}</p>
             )}
             {lessonsLoading && <p className="text-gray-500">Loading lessons…</p>}
-            {!lessonsLoading && lessons.length === 0 && !isTeacher && (
+            {!lessonsLoading && allItems.length === 0 && !isTeacher && (
               <p className="text-gray-600">No lessons in this module.</p>
             )}
             {isTeacher && selectedModule && (
-              <form onSubmit={handleCreateLesson} className="mb-6 flex flex-wrap gap-2">
-                <input
-                  type="text"
-                  placeholder="Lesson title"
-                  value={newLessonTitle}
-                  onChange={(e) => setNewLessonTitle(e.target.value)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <select
-                  value={newLessonType}
-                  onChange={(e) => setNewLessonType(e.target.value as typeof newLessonType)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="text">Text</option>
-                  <option value="video">Video</option>
-                  <option value="audio">Audio</option>
-                  <option value="score">Score</option>
-                </select>
+              <div className="mb-6 flex gap-2">
                 <button
-                  type="submit"
-                  disabled={creatingLesson}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                  onClick={() => {
+                    setShowLessonForm("create");
+                    setSelectedLesson(null);
+                  }}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
                 >
-                  {creatingLesson ? "Adding…" : "Add lesson"}
+                  Add lesson
                 </button>
-              </form>
-            )}
-            {!lessonsLoading && lessons.length > 0 && (
-              <div className="space-y-2">
-                {lessons.map((l) => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => setSelectedLesson(l)}
-                    className={`block w-full rounded-lg px-4 py-3 text-left text-sm transition-colors ${
-                      selectedLesson?.id === l.id
-                        ? "bg-gray-100 font-medium text-gray-900"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {l.title}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowAddExistingModal(true)}
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Add existing lesson
+                </button>
               </div>
             )}
-            {selectedLesson && (
+            <AddExistingLessonModal
+              isOpen={showAddExistingModal}
+              onClose={() => setShowAddExistingModal(false)}
+              teacherLessons={teacherLessons}
+              currentModuleLessonIds={allItems.map((i) => i.lesson.id)}
+              onAttach={attachLesson}
+              onClone={handleCloneLesson}
+            />
+            {((showLessonForm === "create") || (showLessonForm === "edit" && selectedLesson)) && selectedModule && isTeacher && (
+              <div className="mb-6 rounded-card border border-gray-200 bg-white p-6 shadow-card">
+                <h4 className="mb-4 font-semibold text-gray-900">
+                  {showLessonForm === "create" ? "New lesson" : "Edit lesson"}
+                </h4>
+                <LessonBuilderForm
+                  lesson={showLessonForm === "edit" ? selectedLesson : null}
+                  classId={classId}
+                  moduleId={selectedModule.id}
+                  userId={userId}
+                  onSave={handleSaveLesson}
+                  onCancel={() => {
+                    setShowLessonForm(null);
+                    if (showLessonForm === "create") setSelectedLesson(null);
+                  }}
+                  isNew={showLessonForm === "create"}
+                />
+              </div>
+            )}
+            {!lessonsLoading && allItems.length > 0 && showLessonForm !== "create" && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (over && active.id !== over.id) {
+                    const ownedIds = lessons.map((l) => l.id);
+                    const oldIndex = ownedIds.indexOf(active.id as string);
+                    const newIndex = ownedIds.indexOf(over.id as string);
+                    if (oldIndex >= 0 && newIndex >= 0) {
+                      reorderLessons(oldIndex, newIndex);
+                    }
+                  }
+                }}
+              >
+                <SortableContext
+                  items={lessons.map((l) => l.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {allItems.map((item) =>
+                      item.type === "owned" ? (
+                        <SortableLessonItem
+                          key={item.id}
+                          lesson={item.lesson}
+                          isSelected={selectedLesson?.id === item.lesson.id}
+                          onSelect={() => {
+                            setSelectedLesson(item.lesson);
+                            setShowLessonForm(null);
+                          }}
+                          disabled={!isTeacher}
+                        />
+                      ) : (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLesson(item.lesson);
+                            setShowLessonForm(null);
+                          }}
+                          className={`block w-full rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                            selectedLesson?.id === item.lesson.id
+                              ? "bg-gray-100 font-medium text-gray-900"
+                              : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className="text-primary/80">↗ {item.lesson.title}</span>
+                        </button>
+                      )
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+            {selectedLesson && showLessonForm !== "edit" && showLessonForm !== "create" && (
               <div className="mt-8 border-t border-gray-200 pt-6">
+                {isTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLessonForm("edit")}
+                    className="mb-4 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Edit lesson
+                  </button>
+                )}
                 <LessonViewer lesson={selectedLesson} />
               </div>
             )}

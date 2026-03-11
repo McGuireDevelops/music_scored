@@ -10,6 +10,7 @@ import {
   requestAnalysis,
   saveAnalysisSnapshot,
 } from "./ai/analysis";
+import { generateLessonSummary } from "./ai/lessonSummary";
 import {
   createCheckoutSession,
   stripeWebhook,
@@ -25,6 +26,7 @@ export {
   onUserCreate,
   requestAnalysis,
   saveAnalysisSnapshot,
+  generateLessonSummary,
   createCheckoutSession,
   stripeWebhook,
   getStripeConnectOnboardingLink,

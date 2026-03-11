@@ -141,9 +141,9 @@ export default function TeacherLessonsPage() {
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
               >
                 <option value="">Select module</option>
-                {modules.map((m) => (
+                {modules.map((m, index) => (
                   <option key={m.id} value={m.id}>
-                    {m.name}
+                    Module {index + 1}: {m.name}
                   </option>
                 ))}
               </select>

@@ -50,8 +50,23 @@ export interface Lesson {
   title: string;
   type: "video" | "audio" | "score" | "text";
   content?: string;
+  summary?: string;
   mediaRefs?: MediaReference[];
   order?: number;
+  version?: number;
+}
+
+export type LessonPlacementLinkType = "owned" | "attached" | "cloned";
+
+export interface LessonPlacement {
+  id: string;
+  moduleId: string;
+  classId: string;
+  order: number;
+  linkType: LessonPlacementLinkType;
+  lessonId?: string;
+  sourceLessonId?: string;
+  sourceClassId?: string;
 }
 
 export interface LiveLesson {

@@ -267,15 +267,15 @@ service cloud.firestore {
       allow update, delete: if isTeacher() && resource.data.issuedBy == request.auth.uid;
     }
 
-    // Certificate templates: teacher CRUD for own class
+    // Certificate templates: teacher CRUD for own class; admin full access
     match /certificateTemplates/{templateId} {
       allow read: if request.auth != null && (
         isClassTeacher(resource.data.classId)
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if (isTeacher() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow update, delete: if (isTeacher() && resource.data.ownerId == request.auth.uid) || isAdmin();
     }
 
     // Class completions: teacher read; student read own; written by Cloud Function or teacher
@@ -289,15 +289,15 @@ service cloud.firestore {
       allow update, delete: if isTeacher() || isAdmin();
     }
 
-    // Playlists: teacher CRUD for own class; students read if they can access class
+    // Playlists: teacher CRUD for own class; admin full access; students read if they can access class
     match /playlists/{playlistId} {
       allow read: if request.auth != null && (
         isClassTeacher(resource.data.classId)
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if (isTeacher() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow update, delete: if (isTeacher() && resource.data.ownerId == request.auth.uid) || isAdmin();
     }
 
     match /playlists/{playlistId}/items/{itemId} {
@@ -306,7 +306,7 @@ service cloud.firestore {
         || studentCanAccessClassContent(get(/databases/$(database)/documents/playlists/$(playlistId)).data.classId)
         || isAdmin()
       );
-      allow create, update, delete: if isTeacher() && get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerId == request.auth.uid;
+      allow create, update, delete: if (isTeacher() && get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerId == request.auth.uid) || isAdmin();
     }
 
     // Playlist progress: student read/write own only

@@ -87,6 +87,12 @@ export default function ClassDetail() {
     removeEnrollment,
   } = useClassEnrollments(id);
   const { issueCertification } = useIssueCertification(user?.uid);
+  const {
+    getStatus: getPlaylistStatus,
+    addToDoList: addPlaylistToDo,
+    setStatus: setPlaylistStatus,
+    removeFromDoList: removePlaylistFromDo,
+  } = usePlaylistProgress(user?.uid);
 
   useEffect(() => {
     if (!id) return;
@@ -318,7 +324,7 @@ function CurriculumTab({
   };
 
   return (
-    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:gap-8">
+    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:items-start lg:gap-8">
       <ModuleNav
         modules={modules}
         loading={modulesLoading}

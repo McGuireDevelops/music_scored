@@ -45,6 +45,16 @@ export function useCertificateTemplate(classId: string | undefined) {
       .finally(() => setLoading(false));
   }, [classId]);
 
+  const sanitizeForFirestore = <T extends Record<string, unknown>>(
+    obj: T
+  ): { [K in keyof T]: T[K] extends undefined ? null : T[K] } => {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      result[k] = v === undefined ? null : v;
+    }
+    return result as { [K in keyof T]: T[K] extends undefined ? null : T[K] };
+  };
+
   const createOrUpdateTemplate = async (data: {
     ownerId: string;
     name: string;
@@ -53,11 +63,12 @@ export function useCertificateTemplate(classId: string | undefined) {
     if (!classId) throw new Error("No class selected");
     const now = Date.now();
     const placeholders = ["studentName", "className", "issuedAt"];
+    const layout = sanitizeForFirestore(data.layout);
 
     if (template) {
       await updateDoc(doc(db, "certificateTemplates", template.id), {
         name: data.name,
-        layout: data.layout,
+        layout,
         updatedAt: now,
       });
       setTemplate((prev) =>
@@ -69,7 +80,7 @@ export function useCertificateTemplate(classId: string | undefined) {
         classId,
         ownerId: data.ownerId,
         name: data.name,
-        layout: data.layout,
+        layout,
         placeholders,
         createdAt: now,
         updatedAt: now,
@@ -79,7 +90,7 @@ export function useCertificateTemplate(classId: string | undefined) {
         classId,
         ownerId: data.ownerId,
         name: data.name,
-        layout: data.layout,
+        layout,
         placeholders,
         createdAt: now,
         updatedAt: now,

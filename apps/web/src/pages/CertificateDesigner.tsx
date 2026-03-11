@@ -5,8 +5,6 @@ import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useCertificateTemplate } from "../hooks/useCertificateTemplate";
-import type { CertificateTemplateLayout } from "@learning-scores/shared";
-
 export default function CertificateDesigner() {
   const { classId } = useParams<{ classId: string }>();
   const { user } = useAuth();
@@ -56,11 +54,11 @@ export default function CertificateDesigner() {
         ownerId: user.uid,
         name: name.trim(),
         layout: {
-          headerText: headerText.trim() || undefined,
-          bodyText: bodyText.trim() || undefined,
-          footerText: footerText.trim() || undefined,
-          primaryColor: primaryColor || undefined,
-          accentColor: accentColor || undefined,
+          headerText: headerText.trim() || null,
+          bodyText: bodyText.trim() || "Certificate of Completion",
+          footerText: footerText.trim() || null,
+          primaryColor: primaryColor || null,
+          accentColor: accentColor || null,
         },
       });
       if (!linked) {
@@ -71,6 +69,12 @@ export default function CertificateDesigner() {
       setSaving(false);
     }
   };
+
+  // Replace placeholders with sample values for live preview
+  const previewBodyText = (bodyText || "Certificate of Completion")
+    .replace(/\{\{studentName\}\}/g, "Jane Smith")
+    .replace(/\{\{className\}\}/g, className || "Film Scoring 101")
+    .replace(/\{\{issuedAt\}\}/g, new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
 
   const handleAssignToCompletion = async () => {
     if (!classId || !template) return;
@@ -108,9 +112,10 @@ export default function CertificateDesigner() {
 
         {loading && <p className="text-gray-500">Loading…</p>}
         {!loading && (
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           <form
             onSubmit={handleSave}
-            className="max-w-2xl space-y-6 rounded-card border border-gray-200 bg-white p-6 shadow-card"
+            className="flex-1 space-y-6 rounded-card border border-gray-200 bg-white p-6 shadow-card lg:max-w-md"
           >
             <div>
               <label
@@ -237,29 +242,26 @@ export default function CertificateDesigner() {
               )}
             </div>
           </form>
-        )}
 
-        {template && (
-          <div className="mt-8">
+          <div className="flex-1 lg:min-w-0">
             <h3 className="mb-3 text-sm font-semibold text-gray-900">Preview</h3>
             <div
-              className="mx-auto max-w-md rounded-lg border-2 p-8"
+              className="rounded-xl border-2 bg-white p-8 shadow-lg transition-colors"
               style={{
                 borderColor: primaryColor,
                 color: primaryColor,
+                aspectRatio: "4/3",
               }}
             >
               <p className="mb-2 text-sm">{headerText || "This is to certify that"}</p>
               <p className="mb-4 text-2xl font-bold" style={{ color: accentColor }}>
-                {bodyText || "Certificate of Completion"}
-              </p>
-              <p className="text-sm">
-                {"{{studentName}}"} has completed {"{{className}}"} on {"{{issuedAt}}"}
+                {previewBodyText}
               </p>
               {footerText && (
                 <p className="mt-4 text-xs">{footerText}</p>
               )}
             </div>
+          </div>
           </div>
         )}
       </div>

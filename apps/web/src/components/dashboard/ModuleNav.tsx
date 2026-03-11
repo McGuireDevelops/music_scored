@@ -78,8 +78,8 @@ export function ModuleNav({
   };
 
   return (
-    <div className="shrink-0 lg:w-64">
-      <h3 className="mb-3 text-sm font-semibold text-gray-900">Modules</h3>
+    <div className="flex shrink-0 flex-col gap-3 lg:w-64">
+      <h3 className="text-sm font-semibold text-gray-900">Modules</h3>
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
       {!loading && modules.length === 0 && (
         <p className="text-sm text-gray-600">No modules yet.</p>
@@ -127,7 +127,7 @@ export function ModuleNav({
         </nav>
       )}
       {isTeacher && onCreateModule && (
-        <form onSubmit={handleCreateModule} className="mt-4">
+        <form onSubmit={handleCreateModule}>
           <div className="flex gap-2">
             <input
               type="text"

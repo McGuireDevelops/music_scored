@@ -1,0 +1,21 @@
+---
+description: Don't show app navigation or features to logged-out users
+globs: apps/web/src/components/**/*.tsx, apps/web/src/pages/**/*.tsx
+alwaysApply: false
+---
+
+# Auth-Aware UX
+
+**Never show app-specific navigation or features to unauthenticated users.** Logged-out users should see only sign-in–related UI.
+
+## Anti-patterns (avoid)
+
+- Sidebar nav (Dashboard, Calendar, Help, Courses, etc.) when user is not signed in
+- Search, settings, or other app features in header for logged-out users
+- Links or buttons that require auth but are visible before login
+
+## Correct pattern
+
+- Use a **minimal layout** for unauthenticated users: no sidebar, no app header/search
+- Show only branding + sign-in form (or equivalent) until the user is authenticated
+- Gate layout/layout components on `user` from `useAuth()` before rendering full app shell

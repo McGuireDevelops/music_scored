@@ -1,4 +1,4 @@
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, useLocation, Link, useSearchParams } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useEffect } from "react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
@@ -74,15 +74,33 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "portfolio", label: "Portfolio" },
 ];
 
+const VALID_TABS: Tab[] = [
+  "curriculum", "course", "modules", "lessons", "assignments", "documents", "quizzes",
+  "live", "roster", "reports", "playlists", "community", "portfolio",
+];
+
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user } = useAuth();
   const isTeacherRoute = pathname.startsWith("/teacher");
+  const tabFromUrl = searchParams.get("tab");
+  const initialTab = tabFromUrl && VALID_TABS.includes(tabFromUrl as Tab) ? (tabFromUrl as Tab) : "curriculum";
   const [className, setClassName] = useState<string | null>(null);
   const [classDescription, setClassDescription] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("curriculum");
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t && VALID_TABS.includes(t as Tab)) setActiveTab(t as Tab);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!id) return;
+    if (!searchParams.get("tab")) setSearchParams({ tab: "curriculum" }, { replace: true });
+  }, [id, searchParams, setSearchParams]);
   const [selectedModule, setSelectedModule] = useState<ModuleWithId | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithId | null>(null);
   const [moduleForNewLesson, setModuleForNewLesson] = useState<string | null>(null);
@@ -205,7 +223,10 @@ export default function ClassDetail() {
                 return true;
               })}
               activeTab={activeTab}
-              onTabChange={(tabId) => setActiveTab(tabId as Tab)}
+              onTabChange={(tabId) => {
+                setActiveTab(tabId as Tab);
+                setSearchParams({ tab: tabId });
+              }}
             />
             <div className="mt-6">
               {activeTab === "curriculum" && (

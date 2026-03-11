@@ -20,11 +20,21 @@ const navItems: {
   { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
   { to: "/teacher/settings", label: "Settings", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
-  { to: "/student/portfolio", label: "Library", roles: ["student", "admin"] },
+  { to: "/student/portfolio", label: "Library", roles: ["student", "teacher", "admin"] },
   { to: "/student/todo", label: "To-do", roles: ["student", "admin"] },
-  { to: "/student/certifications", label: "Certifications", roles: ["student", "admin"] },
+  { to: "/student/certifications", label: "Certifications", roles: ["student", "teacher", "admin"] },
   { to: "#", label: "Calendar" },
   { to: "#", label: "Help" },
+];
+
+const classNavTabs: { id: string; label: string }[] = [
+  { id: "curriculum", label: "Curriculum" },
+  { id: "course", label: "Course" },
+  { id: "modules", label: "Modules" },
+  { id: "lessons", label: "Lessons" },
+  { id: "assignments", label: "Assignments" },
+  { id: "documents", label: "Documents" },
+  { id: "quizzes", label: "Quizzes" },
 ];
 
 interface SidebarNavProps {
@@ -45,6 +55,12 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
     return true;
   });
 
+  const classMatch = location.pathname.match(/^\/(teacher|student)\/class\/([^/]+)/);
+  const classBasePath = classMatch ? `/${classMatch[1]}/class/${classMatch[2]}` : null;
+  const currentTab = classBasePath
+    ? new URLSearchParams(location.search).get("tab") || "curriculum"
+    : null;
+
   return (
     <aside
       className={`fixed left-0 top-0 z-50 flex h-screen w-60 flex-col bg-sidebar transition-transform duration-200 ${
@@ -61,6 +77,23 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
         {branding.tenantName ?? "Learning Scores"}
       </Link>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
+        {classBasePath ? (
+          <>
+            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+              Course
+            </div>
+            {classNavTabs.map((tab) => (
+              <SidebarNavLink
+                key={tab.id}
+                to={`${classBasePath}?tab=${tab.id}`}
+                current={currentTab === tab.id}
+              >
+                {tab.label}
+              </SidebarNavLink>
+            ))}
+            <div className="my-2 border-t border-white/10" />
+          </>
+        ) : null}
         {visibleItems.map((item) => (
           <SidebarNavLink
             key={item.label}

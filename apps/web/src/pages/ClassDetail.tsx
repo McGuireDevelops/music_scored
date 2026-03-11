@@ -8,6 +8,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useClassModules } from "../hooks/useClassModules";
 import { useModuleLessons } from "../hooks/useModuleLessons";
+import { useClassLessons } from "../hooks/useClassLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
 import { useClassLiveLessons } from "../hooks/useLiveLessons";
@@ -42,11 +43,28 @@ import type { LessonWithId } from "../hooks/useModuleLessons";
 import { ClassReportsTab } from "../components/reports/ClassReportsTab";
 import { PlaylistManager } from "../components/playlists/PlaylistManager";
 
-type Tab = "curriculum" | "assignments" | "quizzes" | "live" | "roster" | "reports" | "playlists" | "community" | "portfolio";
+type Tab =
+  | "curriculum"
+  | "course"
+  | "modules"
+  | "lessons"
+  | "assignments"
+  | "documents"
+  | "quizzes"
+  | "live"
+  | "roster"
+  | "reports"
+  | "playlists"
+  | "community"
+  | "portfolio";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "curriculum", label: "Modules" },
+  { id: "curriculum", label: "Curriculum" },
+  { id: "course", label: "Course" },
+  { id: "modules", label: "Modules" },
+  { id: "lessons", label: "Lessons" },
   { id: "assignments", label: "Assignments" },
+  { id: "documents", label: "Documents" },
   { id: "quizzes", label: "Quizzes" },
   { id: "live", label: "Live" },
   { id: "roster", label: "Roster" },
@@ -62,10 +80,12 @@ export default function ClassDetail() {
   const { profile, user } = useAuth();
   const isTeacherRoute = pathname.startsWith("/teacher");
   const [className, setClassName] = useState<string | null>(null);
+  const [classDescription, setClassDescription] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("curriculum");
   const [selectedModule, setSelectedModule] = useState<ModuleWithId | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithId | null>(null);
+  const [moduleForNewLesson, setModuleForNewLesson] = useState<string | null>(null);
   const {
     modules,
     loading: modulesLoading,
@@ -82,6 +102,10 @@ export default function ClassDetail() {
     updateLesson,
     reorderLessons,
   } = useModuleLessons(id, selectedModule?.id);
+  const {
+    createLesson: createLessonInModule,
+    updateLesson: updateLessonInModule,
+  } = useModuleLessons(id, moduleForNewLesson ?? undefined);
 
   const {
     assignments,
@@ -120,12 +144,23 @@ export default function ClassDetail() {
     if (!id) return;
     getDoc(doc(db, "classes", id))
       .then((snap) => {
-        if (snap.exists()) setClassName(snap.data().name ?? "Class");
-        else setClassName(null);
+        if (snap.exists()) {
+          const data = snap.data();
+          setClassName(data?.name ?? "Class");
+          setClassDescription(data?.description);
+        } else {
+          setClassName(null);
+          setClassDescription(undefined);
+        }
       })
-      .catch(() => setClassName(null))
+      .catch(() => {
+        setClassName(null);
+        setClassDescription(undefined);
+      })
       .finally(() => setLoading(false));
   }, [id]);
+
+  const { lessons: allLessons, loading: allLessonsLoading, refetch: refetchClassLessons } = useClassLessons(id);
 
   return (
     <ProtectedRoute requiredRole={isTeacherRoute ? "teacher" : "student"}>
@@ -174,33 +209,49 @@ export default function ClassDetail() {
             />
             <div className="mt-6">
               {activeTab === "curriculum" && (
-                <CurriculumTab
+                <CurriculumOverviewTab
+                  className={className ?? ""}
+                  modulesCount={modules.length}
+                  lessonsCount={allLessons.length}
+                  assignmentsCount={assignments.length}
+                  quizzesCount={quizzes.length}
+                  loading={modulesLoading || allLessonsLoading}
+                />
+              )}
+              {activeTab === "course" && (
+                <CourseTab
+                  className={className ?? ""}
+                  classDescription={classDescription}
+                />
+              )}
+              {activeTab === "modules" && (
+                <ModulesTab
                   isTeacher={isTeacherRoute}
                   modules={modules}
-                  lessons={lessons}
                   modulesLoading={modulesLoading}
-                  lessonsLoading={lessonsLoading}
                   modulesError={modulesError}
                   selectedModule={selectedModule}
                   setSelectedModule={setSelectedModule}
-                  selectedLesson={selectedLesson}
-                  setSelectedLesson={setSelectedLesson}
                   createModule={createModule}
-                  createLesson={createLesson}
-                  updateLesson={updateLesson}
-                  reorderLessons={reorderLessons}
                   updateModule={updateModule}
                   deleteModule={deleteModule}
                   classId={id!}
                   userId={user?.uid ?? ""}
                 />
               )}
-              {activeTab === "quizzes" && (
-                <QuizzesTab
-                  quizzes={quizzes}
-                  loading={quizzesLoading}
-                  classId={id!}
+              {activeTab === "lessons" && (
+                <LessonsTab
                   isTeacher={isTeacherRoute}
+                  modules={modules}
+                  allLessons={allLessons}
+                  loading={allLessonsLoading}
+                  moduleForNewLesson={moduleForNewLesson}
+                  setModuleForNewLesson={setModuleForNewLesson}
+                  createLesson={createLessonInModule}
+                  updateLesson={updateLessonInModule}
+                  refetchLessons={refetchClassLessons}
+                  classId={id!}
+                  userId={user?.uid ?? ""}
                 />
               )}
               {activeTab === "assignments" && (
@@ -212,6 +263,24 @@ export default function ClassDetail() {
                   createAssignment={createAssignment}
                   userId={user?.uid ?? ""}
                   modules={modules}
+                />
+              )}
+              {activeTab === "documents" && (
+                <DocumentsTab
+                  modules={modules}
+                  lessons={allLessons}
+                  loading={allLessonsLoading}
+                  isTeacher={isTeacherRoute}
+                  updateModule={updateModule}
+                  classId={id!}
+                />
+              )}
+              {activeTab === "quizzes" && (
+                <QuizzesTab
+                  quizzes={quizzes}
+                  loading={quizzesLoading}
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
                 />
               )}
               {activeTab === "live" && (
@@ -369,21 +438,94 @@ function ModuleDocumentsBlock({
   );
 }
 
-function CurriculumTab({
+function CurriculumOverviewTab({
+  className,
+  modulesCount,
+  lessonsCount,
+  assignmentsCount,
+  quizzesCount,
+  loading,
+}: {
+  className: string;
+  modulesCount: number;
+  lessonsCount: number;
+  assignmentsCount: number;
+  quizzesCount: number;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <ContentPane title="Curriculum">
+        <p className="text-gray-500">Loading…</p>
+      </ContentPane>
+    );
+  }
+  return (
+    <ContentPane title="Curriculum">
+      <p className="mb-4 text-gray-700">
+        This course contains the following structure. Use the tabs to manage each part.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="text-2xl font-semibold text-gray-900">{modulesCount}</div>
+          <div className="text-sm text-gray-600">Modules</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="text-2xl font-semibold text-gray-900">{lessonsCount}</div>
+          <div className="text-sm text-gray-600">Lessons</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="text-2xl font-semibold text-gray-900">{assignmentsCount}</div>
+          <div className="text-sm text-gray-600">Assignments</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="text-2xl font-semibold text-gray-900">{quizzesCount}</div>
+          <div className="text-sm text-gray-600">Quizzes</div>
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-gray-500">
+        Hierarchy: Curriculum → Course ({className}) → Modules → Lessons & Assignments. Documents can be attached to lessons or modules; quizzes can be assigned to a lesson, module, or the whole course.
+      </p>
+    </ContentPane>
+  );
+}
+
+function CourseTab({
+  className,
+  classDescription,
+}: {
+  className: string;
+  classDescription?: string;
+}) {
+  return (
+    <ContentPane title="Course">
+      <div className="max-w-2xl space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Course name</label>
+          <p className="mt-1 text-gray-900">{className}</p>
+        </div>
+        {classDescription != null && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <p className="mt-1 whitespace-pre-wrap text-gray-700">{classDescription}</p>
+          </div>
+        )}
+        {classDescription == null && (
+          <p className="text-sm text-gray-500">No description set for this course.</p>
+        )}
+      </div>
+    </ContentPane>
+  );
+}
+
+function ModulesTab({
   isTeacher,
   modules,
-  lessons,
   modulesLoading,
-  lessonsLoading,
   modulesError,
   selectedModule,
   setSelectedModule,
-  selectedLesson,
-  setSelectedLesson,
   createModule,
-  createLesson,
-  updateLesson,
-  reorderLessons,
   updateModule,
   deleteModule,
   classId,
@@ -391,35 +533,100 @@ function CurriculumTab({
 }: {
   isTeacher: boolean;
   modules: ModuleWithId[];
-  lessons: LessonWithId[];
   modulesLoading: boolean;
-  lessonsLoading: boolean;
   modulesError: string | null;
   selectedModule: ModuleWithId | null;
   setSelectedModule: (m: ModuleWithId | null) => void;
-  selectedLesson: LessonWithId | null;
-  setSelectedLesson: (l: LessonWithId | null) => void;
   createModule: (data: { name: string; releaseMode: "time-released" | "mastery-based" }) => Promise<void>;
-  createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
-  updateLesson: (lessonId: string, data: Partial<LessonWithId>) => Promise<void>;
-  reorderLessons: (fromIndex: number, toIndex: number) => Promise<void>;
   updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
   classId: string;
   userId: string;
 }) {
-  const [showLessonForm, setShowLessonForm] = useState<"create" | "edit" | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   const handleCreateModule = async (name: string) => {
     await createModule({ name, releaseMode: "time-released" });
   };
+
+  return (
+    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:items-start lg:gap-8">
+      <ModuleNav
+        modules={modules}
+        loading={modulesLoading}
+        selectedModule={selectedModule}
+        onSelectModule={setSelectedModule}
+        isTeacher={isTeacher}
+        onCreateModule={handleCreateModule}
+        onDeleteModule={deleteModule}
+      />
+      <ContentPane
+        breadcrumb={selectedModule ? "Module details" : undefined}
+        title={selectedModule?.name}
+      >
+        {!selectedModule && (
+          <p className="text-gray-600">Select a module to view its details and documents.</p>
+        )}
+        {selectedModule && (
+          <>
+            {modulesError && (
+              <p className="mb-4 text-sm text-red-600">{modulesError}</p>
+            )}
+            <div className="mb-4">
+              <span className="text-sm text-gray-600">Release mode: </span>
+              <span className="text-sm font-medium text-gray-900">{selectedModule.releaseMode}</span>
+            </div>
+            <ModuleDocumentsBlock
+              module={selectedModule}
+              classId={classId}
+              updateModule={updateModule}
+            />
+            {selectedModule.documentRefs && selectedModule.documentRefs.length > 0 && (
+              <div className="mt-6">
+                <h4 className="mb-2 text-sm font-medium text-gray-700">Module documents</h4>
+                <div className="flex flex-wrap gap-3">
+                  {selectedModule.documentRefs.map((docRef, i) => (
+                    <DocumentViewer key={i} mediaRef={docRef} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </ContentPane>
+    </div>
+  );
+}
+
+function LessonsTab({
+  isTeacher,
+  modules,
+  allLessons,
+  loading,
+  moduleForNewLesson,
+  setModuleForNewLesson,
+  createLesson,
+  updateLesson,
+  refetchLessons,
+  classId,
+  userId,
+}: {
+  isTeacher: boolean;
+  modules: ModuleWithId[];
+  allLessons: LessonWithId[];
+  loading: boolean;
+  moduleForNewLesson: string | null;
+  setModuleForNewLesson: (id: string | null) => void;
+  createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
+  updateLesson: (lessonId: string, data: Partial<LessonWithId>, updateMode?: "push" | "newVersion") => Promise<void>;
+  refetchLessons: () => Promise<void>;
+  classId: string;
+  userId: string;
+}) {
+  const [editingLesson, setEditingLesson] = useState<LessonWithId | null>(null);
+  const [viewingLesson, setViewingLesson] = useState<LessonWithId | null>(null);
+  const lessonsByModule = modules.map((m) => ({
+    module: m,
+    lessons: allLessons.filter((l) => l.moduleId === m.id),
+  }));
 
   const handleSaveLesson = async (
     data: {
@@ -429,173 +636,230 @@ function CurriculumTab({
       type: "video" | "audio" | "score" | "text";
       mediaRefs?: import("@learning-scores/shared").MediaReference[];
     },
-    updateMode?: import("../components/LessonBuilderForm").LessonUpdateMode
+    updateMode?: "push" | "newVersion"
   ) => {
-    if (!selectedModule || !userId) return;
-    if (showLessonForm === "create" || !selectedLesson) {
-      await createLesson(
-        {
-          classId,
-          moduleId: selectedModule.id,
-          ownerId: userId,
-          title: data.title,
-          type: data.type,
-          content: data.content,
-          summary: data.summary,
-          mediaRefs: data.mediaRefs,
-          order: lessons.length,
-        },
-        userId
-      );
-    } else {
-      await updateLesson(selectedLesson.id, {
+    if (!moduleForNewLesson || !userId) return;
+    const order = allLessons.filter((l) => l.moduleId === moduleForNewLesson).length;
+    await createLesson(
+      {
+        classId,
+        moduleId: moduleForNewLesson,
+        ownerId: userId,
         title: data.title,
+        type: data.type,
         content: data.content,
         summary: data.summary,
-        type: data.type,
         mediaRefs: data.mediaRefs,
-      }, updateMode);
-    }
-    setShowLessonForm(null);
-    setSelectedLesson(null);
+        order,
+      },
+      userId
+    );
+    setModuleForNewLesson(null);
+    await refetchLessons();
   };
 
-  const contentPaneTitle = selectedModule
-    ? (() => {
-        const idx = modules.findIndex((m) => m.id === selectedModule.id);
-        return idx >= 0 ? `Module ${idx + 1}: ${selectedModule.name}` : selectedModule.name;
-      })()
-    : undefined;
+  const handleSaveEdit = async (
+    data: {
+      title: string;
+      content?: string;
+      summary?: string;
+      type: "video" | "audio" | "score" | "text";
+      mediaRefs?: import("@learning-scores/shared").MediaReference[];
+    },
+    updateMode?: "push" | "newVersion"
+  ) => {
+    if (!editingLesson || !userId) return;
+    await updateLesson(editingLesson.id, {
+      title: data.title,
+      content: data.content,
+      summary: data.summary,
+      type: data.type,
+      mediaRefs: data.mediaRefs,
+    }, updateMode);
+    setEditingLesson(null);
+    await refetchLessons();
+  };
+
+  if (loading) {
+    return (
+      <ContentPane title="Lessons">
+        <p className="text-gray-500">Loading lessons…</p>
+      </ContentPane>
+    );
+  }
 
   return (
-    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:items-start lg:gap-8">
-      <ModuleNav
-        modules={modules}
-        loading={modulesLoading}
-        selectedModule={selectedModule}
-        onSelectModule={(m) => {
-          setSelectedModule(m);
-          setSelectedLesson(null);
-        }}
-        isTeacher={isTeacher}
-        onCreateModule={handleCreateModule}
-        onDeleteModule={deleteModule}
-      />
-      <ContentPane breadcrumb={selectedModule ? "Course content" : undefined} title={contentPaneTitle}>
-        {!selectedModule && (
-          <p className="text-gray-600">Select a module to view its content.</p>
-        )}
-        {selectedModule && (
-          <>
-            {modulesError && (
-              <p className="mb-4 text-sm text-red-600">{modulesError}</p>
+    <ContentPane title="Lessons">
+      {isTeacher && (
+        <div className="mb-6">
+          {!moduleForNewLesson ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Add lesson to module:</span>
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setModuleForNewLesson(v || null);
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900"
+              >
+                <option value="">Select module</option>
+                {modules.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+              <h4 className="mb-4 font-semibold text-gray-900">New lesson</h4>
+              <LessonBuilderForm
+                lesson={null}
+                classId={classId}
+                moduleId={moduleForNewLesson}
+                userId={userId}
+                onSave={handleSaveLesson}
+                onCancel={() => setModuleForNewLesson(null)}
+                isNew={true}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      <div className="space-y-6">
+        {lessonsByModule.map(({ module: m, lessons: modLessons }) => (
+          <div key={m.id}>
+            <h3 className="mb-2 text-sm font-semibold text-gray-900">{m.name}</h3>
+            {modLessons.length === 0 ? (
+              <p className="text-sm text-gray-500">No lessons</p>
+            ) : (
+              <ul className="space-y-2">
+                {modLessons.map((l) => (
+                  <li key={l.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+                    <span className="font-medium text-gray-900">{l.title}</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingLesson(l)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewingLesson(l)}
+                        className="text-sm text-gray-600 hover:underline"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-            {lessonsLoading && <p className="text-gray-500">Loading lessons…</p>}
-            {!lessonsLoading && lessons.length === 0 && !isTeacher && (
-              <p className="text-gray-600">No lessons in this module.</p>
-            )}
-            {isTeacher && selectedModule && (
-              <div className="mb-6 flex flex-wrap items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLessonForm("create");
-                    setSelectedLesson(null);
-                  }}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
-                >
-                  Add lesson
-                </button>
-                <ModuleDocumentsBlock
-                  module={selectedModule}
-                  classId={classId}
-                  updateModule={updateModule}
-                />
-              </div>
-            )}
-            {((showLessonForm === "create") || (showLessonForm === "edit" && selectedLesson)) && selectedModule && isTeacher && (
-              <div className="mb-6 rounded-card border border-gray-200 bg-white p-6 shadow-card">
-                <h4 className="mb-4 font-semibold text-gray-900">
-                  {showLessonForm === "create" ? "New lesson" : "Edit lesson"}
-                </h4>
-                <LessonBuilderForm
-                  lesson={showLessonForm === "edit" ? selectedLesson : null}
-                  classId={classId}
-                  moduleId={selectedModule.id}
-                  userId={userId}
-                  onSave={handleSaveLesson}
-                  onCancel={() => {
-                    setShowLessonForm(null);
-                    if (showLessonForm === "create") setSelectedLesson(null);
-                  }}
-                  isNew={showLessonForm === "create"}
-                />
-              </div>
-            )}
-            {selectedModule.documentRefs && selectedModule.documentRefs.length > 0 && (
-              <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-                <h4 className="mb-2 text-sm font-medium text-gray-700">Module documents</h4>
-                <div className="flex flex-wrap gap-3">
-                  {selectedModule.documentRefs.map((docRef, i) => (
-                    <DocumentViewer key={i} mediaRef={docRef} />
-                  ))}
+          </div>
+        ))}
+      </div>
+      {viewingLesson && (
+        <div className="mt-6 border-t border-gray-200 pt-6">
+          <button
+            type="button"
+            onClick={() => setViewingLesson(null)}
+            className="mb-4 text-sm text-gray-600 hover:underline"
+          >
+            ← Back to list
+          </button>
+          <LessonViewer lesson={viewingLesson} />
+        </div>
+      )}
+      {editingLesson && (
+        <div className="mt-6 rounded-card border border-gray-200 bg-white p-6 shadow-card">
+          <h4 className="mb-4 font-semibold text-gray-900">Edit lesson</h4>
+          <LessonBuilderForm
+            lesson={editingLesson}
+            classId={classId}
+            moduleId={editingLesson.moduleId}
+            userId={userId}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingLesson(null)}
+            isNew={false}
+          />
+        </div>
+      )}
+    </ContentPane>
+  );
+}
+
+function DocumentsTab({
+  modules,
+  lessons,
+  loading,
+  isTeacher,
+  updateModule,
+  classId,
+}: {
+  modules: ModuleWithId[];
+  lessons: LessonWithId[];
+  loading: boolean;
+  isTeacher: boolean;
+  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
+  classId: string;
+}) {
+  const moduleDocs = modules.flatMap((m) =>
+    (m.documentRefs ?? []).map((ref, i) => ({ source: "module" as const, moduleName: m.name, ref, key: `${m.id}-${i}` }))
+  );
+  const lessonDocs = lessons.flatMap((l) =>
+    (l.mediaRefs ?? []).filter((r) => r.type === "document").map((ref, i) => ({ source: "lesson" as const, lessonTitle: l.title, ref, key: `${l.id}-${i}` }))
+  );
+
+  if (loading) {
+    return (
+      <ContentPane title="Documents">
+        <p className="text-gray-500">Loading…</p>
+      </ContentPane>
+    );
+  }
+
+  return (
+    <ContentPane title="Documents">
+      <p className="mb-4 text-sm text-gray-600">
+        Documents attached to modules or lessons. Students can download from the Modules and Lessons tabs.
+      </p>
+      {moduleDocs.length > 0 && (
+        <div className="mb-6">
+          <h3 className="mb-2 font-semibold text-gray-900">Module documents</h3>
+          <div className="flex flex-wrap gap-3">
+            {moduleDocs.map((d) => (
+              <div key={d.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <span className="text-xs text-gray-500">{d.moduleName}</span>
+                <div className="mt-1">
+                  <DocumentViewer mediaRef={d.ref} />
                 </div>
               </div>
-            )}
-            {!lessonsLoading && lessons.length > 0 && showLessonForm !== "create" && (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event: DragEndEvent) => {
-                  const { active, over } = event;
-                  if (over && active.id !== over.id) {
-                    const oldIndex = lessons.findIndex((l) => l.id === active.id);
-                    const newIndex = lessons.findIndex((l) => l.id === over.id);
-                    if (oldIndex >= 0 && newIndex >= 0) {
-                      reorderLessons(oldIndex, newIndex);
-                    }
-                  }
-                }}
-              >
-                <SortableContext
-                  items={lessons.map((l) => l.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {lessons.map((l) => (
-                      <SortableLessonItem
-                        key={l.id}
-                        lesson={l}
-                        isSelected={selectedLesson?.id === l.id}
-                        onSelect={() => {
-                          setSelectedLesson(l);
-                          setShowLessonForm(null);
-                        }}
-                        disabled={!isTeacher}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-            {selectedLesson && showLessonForm !== "edit" && showLessonForm !== "create" && (
-              <div className="mt-8 border-t border-gray-200 pt-6">
-                {isTeacher && (
-                  <button
-                    type="button"
-                    onClick={() => setShowLessonForm("edit")}
-                    className="mb-4 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Edit lesson
-                  </button>
-                )}
-                <LessonViewer lesson={selectedLesson} />
+            ))}
+          </div>
+        </div>
+      )}
+      {lessonDocs.length > 0 && (
+        <div>
+          <h3 className="mb-2 font-semibold text-gray-900">Lesson documents</h3>
+          <div className="flex flex-wrap gap-3">
+            {lessonDocs.map((d) => (
+              <div key={d.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <span className="text-xs text-gray-500">{d.lessonTitle}</span>
+                <div className="mt-1">
+                  <DocumentViewer mediaRef={d.ref} />
+                </div>
               </div>
-            )}
-          </>
-        )}
-      </ContentPane>
-    </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {moduleDocs.length === 0 && lessonDocs.length === 0 && (
+        <p className="text-gray-500">No documents attached yet. Add documents in Modules or when editing a Lesson.</p>
+      )}
+    </ContentPane>
   );
 }
 

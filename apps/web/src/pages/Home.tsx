@@ -1,6 +1,7 @@
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
 import TeacherDashboard from "./TeacherDashboard";
+import { SignInForm } from "../components/SignInForm";
 
 export default function Home() {
   const { user, profile } = useAuth();
@@ -42,15 +43,10 @@ export default function Home() {
       <p className="mb-8 text-gray-600">
         Professional Film Music Learning Platform by McGuireDevelops
       </p>
-      <div>
-        <p className="text-gray-600">Sign in to access your classes and lessons.</p>
-        <Link
-          to="/signin"
-          className="mt-4 inline-block rounded-xl bg-primary px-5 py-2.5 font-medium text-white no-underline transition-colors hover:bg-primary-dark"
-        >
-          Sign in
-        </Link>
-      </div>
+      <p className="mb-6 text-gray-600">
+        Sign in to access your classes and lessons.
+      </p>
+      <SignInForm embedded />
     </div>
   );
 }

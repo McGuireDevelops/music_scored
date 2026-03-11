@@ -1,7 +1,9 @@
 import { useParams, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useQuizQuestions, useQuiz } from "../hooks/useQuizzes";
+import { useClassModules } from "../hooks/useClassModules";
+import { useModuleLessons } from "../hooks/useModuleLessons";
 import type { QuizQuestionWithId } from "../hooks/useQuizzes";
 import type {
   QuizQuestion,
@@ -9,6 +11,8 @@ import type {
   MultipleChoicePayload,
   QuizCorrectionMode,
 } from "@learning-scores/shared";
+
+type QuizAttachLevel = "course" | "module" | "lesson";
 
 const QUESTION_TYPES: { value: QuizQuestionType; label: string }[] = [
   { value: "multipleChoiceSingle", label: "Single choice" },
@@ -212,6 +216,23 @@ function QuestionEditor({
 export default function QuizEditPage() {
   const { classId, quizId } = useParams<{ classId: string; quizId: string }>();
   const { quiz, loading: quizLoading, updateQuiz } = useQuiz(quizId);
+  const { modules } = useClassModules(classId);
+  const [editingQuestion, setEditingQuestion] =
+    useState<QuizQuestionWithId | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+
+  const effectiveAttachLevel: QuizAttachLevel = quiz?.lessonId
+    ? "lesson"
+    : quiz?.moduleId
+      ? "module"
+      : "course";
+  const selectedModuleId = effectiveAttachLevel !== "course" ? quiz?.moduleId ?? "" : "";
+  const { lessons: moduleLessons } = useModuleLessons(
+    classId,
+    selectedModuleId || undefined
+  );
+  const selectedLessonId = quiz?.lessonId ?? "";
+
   const {
     questions,
     loading: questionsLoading,
@@ -219,11 +240,24 @@ export default function QuizEditPage() {
     updateQuestion,
     deleteQuestion,
   } = useQuizQuestions(quizId, { forTeacher: true });
-  const [editingQuestion, setEditingQuestion] =
-    useState<QuizQuestionWithId | null>(null);
-  const [addingNew, setAddingNew] = useState(false);
 
   const loading = quizLoading || questionsLoading;
+
+  const handleAttachLevelChange = (level: QuizAttachLevel) => {
+    if (level === "course") {
+      updateQuiz({ moduleId: "", lessonId: "" });
+    } else if (level === "module") {
+      updateQuiz({ lessonId: "" });
+    }
+  };
+
+  const handleModuleChange = (moduleId: string) => {
+    updateQuiz({ moduleId: moduleId || "", lessonId: "" });
+  };
+
+  const handleLessonChange = (lessonId: string) => {
+    updateQuiz({ lessonId: lessonId || "" });
+  };
 
   const handleSaveNew = async (data: Omit<QuizQuestion, "id">) => {
     await addQuestion(data);
@@ -264,6 +298,58 @@ export default function QuizEditPage() {
         </h2>
         {quiz && (
           <div className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Attach to
+              </label>
+              <select
+                value={effectiveAttachLevel}
+                onChange={(e) => handleAttachLevelChange(e.target.value as QuizAttachLevel)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="course">Course (final quiz)</option>
+                <option value="module">Module (end-of-module quiz)</option>
+                <option value="lesson">Lesson (lesson quiz)</option>
+              </select>
+            </div>
+            {(effectiveAttachLevel === "module" || effectiveAttachLevel === "lesson") && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Module
+                </label>
+                <select
+                  value={selectedModuleId}
+                  onChange={(e) => handleModuleChange(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select module</option>
+                  {modules.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {effectiveAttachLevel === "lesson" && selectedModuleId && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Lesson
+                </label>
+                <select
+                  value={selectedLessonId}
+                  onChange={(e) => handleLessonChange(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select lesson</option>
+                  {moduleLessons.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Correction mode

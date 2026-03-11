@@ -45,17 +45,19 @@ export function useClassAssignments(classId: string | undefined) {
   }, [classId]);
 
   const createAssignment = async (
-    data: Omit<Assignment, "id"> & { moduleId?: string },
+    data: Omit<Assignment, "id"> & { moduleId?: string; lessonId?: string },
     ownerId: string
   ) => {
     if (!classId) throw new Error("No class selected");
-    const { moduleId, ...rest } = data;
-    const ref = await addDoc(collection(db, "assignments"), {
+    const { moduleId, lessonId, ...rest } = data;
+    const docData: Record<string, unknown> = {
       ...rest,
       moduleId: moduleId || "",
       classId,
       ownerId,
-    });
+    };
+    if (lessonId !== undefined) docData.lessonId = lessonId;
+    const ref = await addDoc(collection(db, "assignments"), docData);
     setAssignments((prev) => [
       ...prev,
       { id: ref.id, ...data, classId, ownerId } as AssignmentWithId,
@@ -64,7 +66,7 @@ export function useClassAssignments(classId: string | undefined) {
 
   const updateAssignment = async (
     assignmentId: string,
-    data: Partial<Pick<AssignmentWithId, "title" | "brief" | "deadline" | "rubricId">>
+    data: Partial<Pick<AssignmentWithId, "title" | "brief" | "deadline" | "rubricId" | "lessonId">>
   ) => {
     await updateDoc(doc(db, "assignments", assignmentId), data);
     setAssignments((prev) =>

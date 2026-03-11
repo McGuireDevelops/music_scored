@@ -1,6 +1,6 @@
 import DOMPurify from "dompurify";
 import type { LessonWithId } from "../hooks/useModuleLessons";
-import { AudioPlayer, VideoPlayer, ScoreViewer, ImageViewer } from "./media";
+import { AudioPlayer, VideoPlayer, ScoreViewer, ImageViewer, DocumentViewer } from "./media";
 import type { MediaReference } from "@learning-scores/shared";
 
 interface LessonViewerProps {
@@ -17,6 +17,8 @@ function MediaRefBlock({ mediaRef }: { mediaRef: MediaReference }) {
       return <ScoreViewer mediaRef={mediaRef} />;
     case "image":
       return <ImageViewer mediaRef={mediaRef} />;
+    case "document":
+      return <DocumentViewer mediaRef={mediaRef} />;
     default:
       return null;
   }

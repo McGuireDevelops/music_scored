@@ -1,9 +1,11 @@
+import { Link } from "react-router-dom";
+
 interface StatCardProps {
   label: string;
   value: string | number;
   subtext?: string;
   variant?: "default" | "success" | "warning" | "error";
-  onClick?: () => void;
+  to?: string;
 }
 
 const variantStyles = {
@@ -18,23 +20,27 @@ export function StatCard({
   value,
   subtext,
   variant = "default",
-  onClick,
+  to,
 }: StatCardProps) {
-  const className = `rounded-xl border p-5 shadow-card transition-shadow hover:shadow-cardHover ${variantStyles[variant]} ${onClick ? "cursor-pointer" : ""}`;
+  const className = `rounded-xl border p-5 shadow-card transition-shadow hover:shadow-cardHover ${variantStyles[variant]} ${to ? "cursor-pointer no-underline" : ""}`;
 
-  return (
-    <div
-      className={className}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
-    >
+  const content = (
+    <>
       <p className="text-sm font-medium uppercase tracking-wide text-gray-500">
         {label}
       </p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
       {subtext && <p className="mt-0.5 text-sm text-gray-600">{subtext}</p>}
-    </div>
+    </>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className={`block text-inherit hover:text-inherit ${className}`}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }

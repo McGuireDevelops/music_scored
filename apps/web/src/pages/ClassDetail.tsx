@@ -1,7 +1,9 @@
 import { useParams, useLocation, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
+import { useEffect } from "react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { ref, uploadBytes } from "firebase/storage";
+import { db, storage } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useClassModules } from "../hooks/useClassModules";
@@ -15,6 +17,7 @@ import { useIssueCertification } from "../hooks/useCertifications";
 import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { LessonViewer } from "../components/LessonViewer";
 import { LessonBuilderForm } from "../components/LessonBuilderForm";
+import { DocumentViewer } from "../components/media/DocumentViewer";
 import { SortableLessonItem } from "../components/SortableLessonItem";
 import {
   DndContext,
@@ -68,6 +71,7 @@ export default function ClassDetail() {
     loading: modulesLoading,
     error: modulesError,
     createModule,
+    updateModule,
     deleteModule,
   } = useClassModules(id);
 
@@ -185,6 +189,7 @@ export default function ClassDetail() {
                   createLesson={createLesson}
                   updateLesson={updateLesson}
                   reorderLessons={reorderLessons}
+                  updateModule={updateModule}
                   deleteModule={deleteModule}
                   classId={id!}
                   userId={user?.uid ?? ""}
@@ -206,6 +211,7 @@ export default function ClassDetail() {
                   isTeacher={isTeacherRoute}
                   createAssignment={createAssignment}
                   userId={user?.uid ?? ""}
+                  modules={modules}
                 />
               )}
               {activeTab === "live" && (
@@ -281,6 +287,88 @@ export default function ClassDetail() {
   );
 }
 
+const MODULE_DOCUMENT_ACCEPT =
+  "application/pdf,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx";
+
+function ModuleDocumentsBlock({
+  module,
+  classId,
+  updateModule,
+}: {
+  module: ModuleWithId;
+  classId: string;
+  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentRefs = module.documentRefs ?? [];
+
+  const handleAddDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !classId || !module.id) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const path = `classes/${classId}/modules/${module.id}/documents/${Date.now()}-${safeName}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      await updateModule(module.id, {
+        documentRefs: [
+          ...documentRefs,
+          { type: "document" as const, resourceId: path },
+        ],
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveDocument = async (index: number) => {
+    const next = documentRefs.filter((_, i) => i !== index);
+    await updateModule(module.id, { documentRefs: next });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm font-medium text-gray-700">Module documents:</span>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={MODULE_DOCUMENT_ACCEPT}
+        className="hidden"
+        onChange={handleAddDocument}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+      >
+        {uploading ? "Uploading…" : "Add PDF or Word"}
+      </button>
+      {documentRefs.map((r, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-600"
+        >
+          {r.resourceId.split("/").pop()}
+          <button
+            type="button"
+            onClick={() => handleRemoveDocument(i)}
+            className="text-red-600 hover:underline"
+            aria-label="Remove"
+          >
+            ✕
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CurriculumTab({
   isTeacher,
   modules,
@@ -296,6 +384,7 @@ function CurriculumTab({
   createLesson,
   updateLesson,
   reorderLessons,
+  updateModule,
   deleteModule,
   classId,
   userId,
@@ -314,6 +403,7 @@ function CurriculumTab({
   createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
   updateLesson: (lessonId: string, data: Partial<LessonWithId>) => Promise<void>;
   reorderLessons: (fromIndex: number, toIndex: number) => Promise<void>;
+  updateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
   classId: string;
   userId: string;
@@ -405,7 +495,7 @@ function CurriculumTab({
               <p className="text-gray-600">No lessons in this module.</p>
             )}
             {isTeacher && selectedModule && (
-              <div className="mb-6">
+              <div className="mb-6 flex flex-wrap items-center gap-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -416,6 +506,11 @@ function CurriculumTab({
                 >
                   Add lesson
                 </button>
+                <ModuleDocumentsBlock
+                  module={selectedModule}
+                  classId={classId}
+                  updateModule={updateModule}
+                />
               </div>
             )}
             {((showLessonForm === "create") || (showLessonForm === "edit" && selectedLesson)) && selectedModule && isTeacher && (
@@ -435,6 +530,16 @@ function CurriculumTab({
                   }}
                   isNew={showLessonForm === "create"}
                 />
+              </div>
+            )}
+            {selectedModule.documentRefs && selectedModule.documentRefs.length > 0 && (
+              <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+                <h4 className="mb-2 text-sm font-medium text-gray-700">Module documents</h4>
+                <div className="flex flex-wrap gap-3">
+                  {selectedModule.documentRefs.map((docRef, i) => (
+                    <DocumentViewer key={i} mediaRef={docRef} />
+                  ))}
+                </div>
               </div>
             )}
             {!lessonsLoading && lessons.length > 0 && showLessonForm !== "create" && (
@@ -877,35 +982,46 @@ function AssignmentsTab({
   isTeacher,
   createAssignment,
   userId,
+  modules,
 }: {
-  assignments: { id: string; title: string; brief?: string; deadline?: number }[];
+  assignments: { id: string; title: string; brief?: string; deadline?: number; moduleId?: string; lessonId?: string }[];
   loading: boolean;
   classId: string;
   isTeacher: boolean;
-  createAssignment?: (data: { classId: string; moduleId: string; ownerId: string; title: string; brief: string }, ownerId: string) => Promise<void>;
+  createAssignment?: (data: { classId: string; moduleId: string; ownerId: string; title: string; brief: string; lessonId?: string }, ownerId: string) => Promise<void>;
   userId: string;
+  modules: { id: string; name: string }[];
 }) {
   const [newTitle, setNewTitle] = useState("");
   const [newBrief, setNewBrief] = useState("");
+  const [newModuleId, setNewModuleId] = useState("");
+  const [newLessonId, setNewLessonId] = useState("");
   const [creating, setCreating] = useState(false);
+  const { lessons: moduleLessons } = useModuleLessons(
+    classId,
+    newModuleId || undefined
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createAssignment || !newTitle.trim() || !userId) return;
+    if (!createAssignment || !newTitle.trim() || !userId || !newModuleId) return;
     setCreating(true);
     try {
       await createAssignment(
         {
           classId,
-          moduleId: "",
+          moduleId: newModuleId,
           ownerId: userId,
           title: newTitle.trim(),
           brief: newBrief.trim() || "No brief provided.",
+          lessonId: newLessonId || undefined,
         },
         userId
       );
       setNewTitle("");
       setNewBrief("");
+      setNewModuleId("");
+      setNewLessonId("");
     } finally {
       setCreating(false);
     }
@@ -915,6 +1031,48 @@ function AssignmentsTab({
     <ContentPane title="Assignments">
       {isTeacher && createAssignment && (
         <form onSubmit={handleCreate} className="mb-6 max-w-md space-y-4">
+          <div>
+            <label htmlFor="assign-module" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Module (required)
+            </label>
+            <select
+              id="assign-module"
+              value={newModuleId}
+              onChange={(e) => {
+                setNewModuleId(e.target.value);
+                setNewLessonId("");
+              }}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              required
+            >
+              <option value="">Select module</option>
+              {modules.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {newModuleId && (
+            <div>
+              <label htmlFor="assign-lesson" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Based on lesson (optional)
+              </label>
+              <select
+                id="assign-lesson"
+                value={newLessonId}
+                onChange={(e) => setNewLessonId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">None (module-level assignment)</option>
+                {moduleLessons.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label htmlFor="assign-title" className="mb-1.5 block text-sm font-medium text-gray-700">
               Assignment title
@@ -943,7 +1101,7 @@ function AssignmentsTab({
           </div>
           <button
             type="submit"
-            disabled={creating}
+            disabled={creating || !newModuleId}
             className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {creating ? "Creating…" : "Create assignment"}

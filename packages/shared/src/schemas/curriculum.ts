@@ -24,6 +24,7 @@ export const moduleSchema = z.object({
   releaseMode: moduleReleaseModeSchema,
   releasedAt: z.number().optional(),
   order: z.number().optional(),
+  documentRefs: z.array(mediaReferenceSchema).optional(),
 });
 
 export const lessonSchema = z.object({

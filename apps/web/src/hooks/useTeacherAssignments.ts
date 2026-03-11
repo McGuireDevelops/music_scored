@@ -92,16 +92,18 @@ export function useTeacherAssignments(teacherId: string | undefined) {
   }, [teacherId]);
 
   const createAssignment = async (
-    data: Omit<Assignment, "id"> & { classId: string; moduleId?: string },
+    data: Omit<Assignment, "id"> & { classId: string; moduleId?: string; lessonId?: string },
     ownerId: string
   ) => {
-    const { moduleId, ...rest } = data;
-    const ref = await addDoc(collection(db, "assignments"), {
+    const { moduleId, lessonId, ...rest } = data;
+    const docData: Record<string, unknown> = {
       ...rest,
       moduleId: moduleId ?? "",
       classId: data.classId,
       ownerId,
-    });
+    };
+    if (lessonId !== undefined) docData.lessonId = lessonId;
+    const ref = await addDoc(collection(db, "assignments"), docData);
     const newAssignment: TeacherAssignmentEnriched = {
       id: ref.id,
       ...data,
@@ -114,7 +116,7 @@ export function useTeacherAssignments(teacherId: string | undefined) {
 
   const updateAssignment = async (
     assignmentId: string,
-    data: Partial<Pick<TeacherAssignmentWithId, "title" | "brief" | "deadline" | "rubricId">>
+    data: Partial<Pick<TeacherAssignmentWithId, "title" | "brief" | "deadline" | "rubricId" | "lessonId">>
   ) => {
     await updateDoc(doc(db, "assignments", assignmentId), data);
     setAssignments((prev) =>

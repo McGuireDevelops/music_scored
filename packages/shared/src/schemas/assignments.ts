@@ -4,6 +4,7 @@ import { mediaReferenceSchema } from "./media-reference.js";
 export const assignmentSchema = z.object({
   classId: z.string().min(1),
   moduleId: z.string().min(1),
+  lessonId: z.string().optional(),
   ownerId: z.string().min(1),
   title: z.string().min(1),
   brief: z.string().min(1),

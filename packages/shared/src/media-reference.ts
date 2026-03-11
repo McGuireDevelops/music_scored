@@ -1,9 +1,10 @@
 /**
- * MediaReference system - first-class linking of audio, video, score timestamps
+ * MediaReference system - first-class linking of audio, video, score, image, documents
  * Used in lessons, feedback, assignments, rubric examples
+ * document: PDF, Word, and other file uploads
  */
 
-export type MediaReferenceType = "audio" | "video" | "score" | "image";
+export type MediaReferenceType = "audio" | "video" | "score" | "image" | "document";
 
 export interface MediaReference {
   type: MediaReferenceType;

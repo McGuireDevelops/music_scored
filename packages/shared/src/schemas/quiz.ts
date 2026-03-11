@@ -138,6 +138,7 @@ export const quizAttemptSchema = z.object({
 export const quizSchema = z.object({
   classId: z.string().min(1),
   moduleId: z.string().optional(),
+  lessonId: z.string().optional(),
   ownerId: z.string().min(1),
   title: z.string().min(1),
   correctionMode: quizCorrectionModeSchema.optional(),

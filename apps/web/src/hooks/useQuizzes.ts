@@ -10,6 +10,7 @@ import {
   updateDoc,
   deleteDoc,
   setDoc,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Quiz, QuizQuestion, QuizAttempt } from "@learning-scores/shared";
@@ -50,14 +51,19 @@ export function useClassQuizzes(classId: string | undefined) {
     ownerId: string
   ) => {
     if (!classId) throw new Error("No class");
-    const ref = await addDoc(collection(db, "quizzes"), {
+    const payload: Record<string, unknown> = {
       ...data,
       classId,
       ownerId,
       correctionMode: data.correctionMode ?? "auto",
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    });
+    };
+    if (data.moduleId !== undefined) payload.moduleId = data.moduleId;
+    if (data.lessonId !== undefined) payload.lessonId = data.lessonId;
+    if (payload.moduleId === undefined) delete payload.moduleId;
+    if (payload.lessonId === undefined) delete payload.lessonId;
+    const ref = await addDoc(collection(db, "quizzes"), payload);
     setQuizzes((prev) => [
       ...prev,
       {
@@ -90,12 +96,18 @@ export function useQuiz(quizId: string | undefined) {
       .finally(() => setLoading(false));
   }, [quizId]);
 
-  const updateQuiz = async (data: Partial<Pick<Quiz, "title" | "correctionMode" | "printIdentifier">>) => {
+  const updateQuiz = async (
+    data: Partial<
+      Pick<Quiz, "title" | "correctionMode" | "printIdentifier" | "moduleId" | "lessonId">
+    >
+  ) => {
     if (!quizId || !quiz) throw new Error("No quiz");
-    await updateDoc(doc(db, "quizzes", quizId), {
-      ...data,
-      updatedAt: Date.now(),
-    });
+    const update: Record<string, unknown> = { ...data, updatedAt: Date.now() };
+    if (data.moduleId !== undefined)
+      update.moduleId = data.moduleId === "" || data.moduleId == null ? deleteField() : data.moduleId;
+    if (data.lessonId !== undefined)
+      update.lessonId = data.lessonId === "" || data.lessonId == null ? deleteField() : data.lessonId;
+    await updateDoc(doc(db, "quizzes", quizId), update);
     setQuiz((prev) => (prev ? { ...prev, ...data, updatedAt: Date.now() } : null));
   };
 

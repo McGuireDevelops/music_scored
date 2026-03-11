@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const mediaReferenceSchema = z.object({
-  type: z.enum(["audio", "video", "score", "image"]),
+  type: z.enum(["audio", "video", "score", "image", "document"]),
   resourceId: z.string().min(1),
   start: z.number().optional(),
   end: z.number().optional(),

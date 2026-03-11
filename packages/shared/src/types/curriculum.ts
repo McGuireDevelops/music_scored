@@ -40,6 +40,8 @@ export interface Module {
   releaseMode: ModuleReleaseMode;
   releasedAt?: number; // for time-released
   order?: number;
+  /** Module-level documents (PDF, Word, video, audio, images) */
+  documentRefs?: MediaReference[];
 }
 
 export interface Lesson {

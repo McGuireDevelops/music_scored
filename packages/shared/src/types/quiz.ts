@@ -165,6 +165,7 @@ export interface Quiz {
   id: string;
   classId: string;
   moduleId?: string;
+  lessonId?: string;
   ownerId: string;
   title: string;
   correctionMode?: QuizCorrectionMode;

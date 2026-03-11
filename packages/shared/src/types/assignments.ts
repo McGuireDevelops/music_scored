@@ -8,6 +8,7 @@ export interface Assignment {
   id: string;
   classId: string;
   moduleId: string;
+  lessonId?: string;
   ownerId: string;
   title: string;
   brief: string;

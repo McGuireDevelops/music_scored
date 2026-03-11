@@ -72,7 +72,7 @@ export function useClassModules(classId: string | undefined) {
 
   const updateModule = async (
     moduleId: string,
-    data: Partial<Pick<ModuleWithId, "name" | "releaseMode" | "releasedAt" | "order">>
+    data: Partial<Pick<ModuleWithId, "name" | "releaseMode" | "releasedAt" | "order" | "documentRefs">>
   ) => {
     await updateDoc(doc(db, "modules", moduleId), data);
     setModules((prev) =>

@@ -24,6 +24,8 @@ interface LessonBuilderFormProps {
 
 const ACCEPT_VIDEO = "video/mp4,video/webm,video/ogg";
 const ACCEPT_IMAGE = "image/jpeg,image/png,image/gif,image/webp";
+const ACCEPT_DOCUMENT =
+  "application/pdf,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx";
 
 export function LessonBuilderForm({
   lesson,
@@ -47,8 +49,10 @@ export function LessonBuilderForm({
   const [aiLoading, setAiLoading] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   const generateLessonSummary = httpsCallable<
     { lessonId?: string; title?: string; content?: string },
@@ -71,7 +75,10 @@ export function LessonBuilderForm({
     }
   };
 
-  const uploadFile = async (file: File, mediaType: "video" | "image"): Promise<string> => {
+  const uploadFile = async (
+    file: File,
+    mediaType: "video" | "image" | "document"
+  ): Promise<string> => {
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const path = `classes/${classId}/media/${Date.now()}-${safeName}`;
     const storageRef = ref(storage, path);
@@ -94,6 +101,11 @@ export function LessonBuilderForm({
       for (const img of imageFiles) {
         const path = await uploadFile(img, "image");
         newRefs.push({ type: "image", resourceId: path });
+      }
+
+      for (const doc of documentFiles) {
+        const path = await uploadFile(doc, "document");
+        newRefs.push({ type: "document", resourceId: path });
       }
 
       await onSave({
@@ -207,6 +219,42 @@ export function LessonBuilderForm({
           {mediaRefs.filter((r) => r.type === "image").length > 0 && (
             <span className="py-2 text-sm text-gray-500">
               + {mediaRefs.filter((r) => r.type === "image").length} existing
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Documents – PDF, Word (optional)
+        </label>
+        <input
+          ref={documentInputRef}
+          type="file"
+          accept={ACCEPT_DOCUMENT}
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            setDocumentFiles((prev) => [...prev, ...files]);
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => documentInputRef.current?.click()}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Add PDF or Word
+          </button>
+          {documentFiles.length > 0 && (
+            <span className="py-2 text-sm text-gray-500">
+              {documentFiles.length} selected
+            </span>
+          )}
+          {mediaRefs.filter((r) => r.type === "document").length > 0 && (
+            <span className="py-2 text-sm text-gray-500">
+              + {mediaRefs.filter((r) => r.type === "document").length} existing
             </span>
           )}
         </div>

@@ -13,6 +13,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useTenant } from "../contexts/TenantContext";
 import { useTeacherClasses } from "../hooks/useTeacherClasses";
+import { useTeacherSettings } from "../hooks/useTeacherSettings";
 import { useTeacherStudents } from "../hooks/useTeacherStudents";
 import { useTeacherAssignments } from "../hooks/useTeacherAssignments";
 import { useTeacherLiveLessons } from "../hooks/useTeacherLiveLessons";
@@ -40,6 +41,7 @@ function getChartColors(primaryColor: string | undefined, accentColor: string | 
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const { branding } = useTenant();
+  const { features } = useTeacherSettings(user?.uid);
   const { classes, loading, error, setClasses } = useTeacherClasses(user?.uid);
   const { students, loading: studentsLoading } = useTeacherStudents(user?.uid);
   const { assignments, loading: assignmentsLoading } = useTeacherAssignments(user?.uid);
@@ -57,7 +59,9 @@ export default function TeacherDashboard() {
     };
   }, [assignments]);
 
-  const metricsLoading = loading || studentsLoading || assignmentsLoading || liveLessonsLoading;
+  const showAssignments = features.assignments !== false;
+  const showLiveLessons = features.liveLessons !== false;
+  const metricsLoading = loading || studentsLoading || (showAssignments && assignmentsLoading) || (showLiveLessons && liveLessonsLoading);
 
   const chartColors = useMemo(
     () => getChartColors(branding.primaryColor, branding.accentColor),
@@ -189,67 +193,77 @@ export default function TeacherDashboard() {
                   value={classes.length}
                   variant="default"
                 />
-                <StatCard
-                  label="Upcoming deadlines"
-                  value={upcomingDeadlinesCount}
-                  subtext="Assignments due in next 7 days"
-                  variant={upcomingDeadlinesCount > 0 ? "warning" : "default"}
-                />
-                <StatCard
-                  label="Upcoming classes"
-                  value={upcomingLessons.length}
-                  subtext="Live lessons in next 7 days"
-                  variant={upcomingLessons.length > 0 ? "warning" : "default"}
-                />
+                {showAssignments && (
+                  <StatCard
+                    label="Upcoming deadlines"
+                    value={upcomingDeadlinesCount}
+                    subtext="Assignments due in next 7 days"
+                    variant={upcomingDeadlinesCount > 0 ? "warning" : "default"}
+                  />
+                )}
+                {showLiveLessons && (
+                  <StatCard
+                    label="Upcoming classes"
+                    value={upcomingLessons.length}
+                    subtext="Live lessons in next 7 days"
+                    variant={upcomingLessons.length > 0 ? "warning" : "default"}
+                  />
+                )}
               </div>
+              {(showAssignments || showLiveLessons) && (
               <div className="grid gap-6 sm:grid-cols-2">
-                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-                  <h3 className="mb-3 font-medium text-gray-900">Next deadlines</h3>
-                  {upcomingAssignments.length === 0 ? (
-                    <p className="text-sm text-gray-500">No assignments due in the next 7 days</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {upcomingAssignments.map((a) => (
-                        <li key={a.id}>
-                          <Link
-                            to={`/teacher/class/${a.classId}/assignment/${a.id}`}
-                            className="block text-sm text-primary hover:underline"
-                          >
-                            {a.title}
-                          </Link>
-                          <p className="text-xs text-gray-500">
-                            {a.className} · Due {formatUtcForDisplay(a.deadline!)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-                  <h3 className="mb-3 font-medium text-gray-900">Next live lessons</h3>
-                  {upcomingLessons.length === 0 ? (
-                    <p className="text-sm text-gray-500">No live lessons in the next 7 days</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {upcomingLessons.slice(0, UPCOMING_LIST_SIZE).map((l) => (
-                        <li key={l.id}>
-                          <Link
-                            to={`/teacher/class/${l.classId}`}
-                            className="block text-sm text-primary hover:underline"
-                          >
-                            {l.title}
-                          </Link>
-                          <p className="text-xs text-gray-500">
-                            {l.className} · {formatUtcForDisplay(l.scheduledAt)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                {showAssignments && (
+                  <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                    <h3 className="mb-3 font-medium text-gray-900">Next deadlines</h3>
+                    {upcomingAssignments.length === 0 ? (
+                      <p className="text-sm text-gray-500">No assignments due in the next 7 days</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {upcomingAssignments.map((a) => (
+                          <li key={a.id}>
+                            <Link
+                              to={`/teacher/class/${a.classId}/assignment/${a.id}`}
+                              className="block text-sm text-primary hover:underline"
+                            >
+                              {a.title}
+                            </Link>
+                            <p className="text-xs text-gray-500">
+                              {a.className} · Due {formatUtcForDisplay(a.deadline!)}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                {showLiveLessons && (
+                  <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                    <h3 className="mb-3 font-medium text-gray-900">Next live lessons</h3>
+                    {upcomingLessons.length === 0 ? (
+                      <p className="text-sm text-gray-500">No live lessons in the next 7 days</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {upcomingLessons.slice(0, UPCOMING_LIST_SIZE).map((l) => (
+                          <li key={l.id}>
+                            <Link
+                              to={`/teacher/class/${l.classId}`}
+                              className="block text-sm text-primary hover:underline"
+                            >
+                              {l.title}
+                            </Link>
+                            <p className="text-xs text-gray-500">
+                              {l.className} · {formatUtcForDisplay(l.scheduledAt)}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </div>
+              )}
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <div className={`mt-6 grid gap-6 ${showAssignments ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
                 <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
                   <h3 className="mb-4 font-medium text-gray-900">
                     Students per course
@@ -293,35 +307,37 @@ export default function TeacherDashboard() {
                     </div>
                   )}
                 </div>
-                <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
-                  <h3 className="mb-4 font-medium text-gray-900">
-                    Assignments due by week
-                  </h3>
-                  {assignmentsDueByWeekData.every((w) => w.count === 0) ? (
-                    <p className="text-sm text-gray-500">
-                      No assignments due in the next 4 weeks
-                    </p>
-                  ) : (
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={assignmentsDueByWeekData}
-                          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                          <XAxis
-                            dataKey="name"
-                            tick={{ fontSize: 11 }}
-                            interval={0}
-                          />
-                          <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                          <Tooltip />
-                          <Bar dataKey="count" name="Assignments" fill={primaryChartColor} radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
+                {showAssignments && (
+                  <div className="rounded-card border border-gray-200 bg-white p-5 shadow-card">
+                    <h3 className="mb-4 font-medium text-gray-900">
+                      Assignments due by week
+                    </h3>
+                    {assignmentsDueByWeekData.every((w) => w.count === 0) ? (
+                      <p className="text-sm text-gray-500">
+                        No assignments due in the next 4 weeks
+                      </p>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={assignmentsDueByWeekData}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis
+                              dataKey="name"
+                              tick={{ fontSize: 11 }}
+                              interval={0}
+                            />
+                            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                            <Tooltip />
+                            <Bar dataKey="count" name="Assignments" fill={primaryChartColor} radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

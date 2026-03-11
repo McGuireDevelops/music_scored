@@ -38,8 +38,12 @@ function useResolvedTenantId(): string | null {
         return;
       }
 
-      // /teacher/* — current user is tenant if they're a teacher
-      if (pathname.startsWith("/teacher") && user && (profile?.role === "teacher" || profile?.role === "admin")) {
+      // / or /teacher/* — current user is tenant if they're a teacher (dashboard shows teacher branding)
+      const isTeacherContext =
+        (pathname === "/" || pathname.startsWith("/teacher")) &&
+        user &&
+        (profile?.role === "teacher" || profile?.role === "admin");
+      if (isTeacherContext) {
         setResolvedId(user.uid);
         return;
       }

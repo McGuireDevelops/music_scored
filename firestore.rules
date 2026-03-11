@@ -207,6 +207,12 @@ service cloud.firestore {
       );
     }
 
+    // Answer key: teacher-only; students never see correct answers
+    match /quizzes/{quizId}/answerKey/{qId} {
+      allow read, write: if request.auth != null && isTeacher()
+        && get(/databases/$(database)/documents/quizzes/$(quizId)).data.ownerId == request.auth.uid;
+    }
+
     match /quizzes/{quizId}/attempts/{attemptId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
@@ -215,7 +221,9 @@ service cloud.firestore {
       );
       allow create: if isStudent() && request.resource.data.userId == request.auth.uid
         && studentCanAccessClassContent(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId);
-      allow update, delete: if resource.data.userId == request.auth.uid;
+      allow update: if resource.data.userId == request.auth.uid
+        || (isClassTeacher(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId) || isAdmin());
+      allow delete: if resource.data.userId == request.auth.uid;
     }
 
     // Analysis snapshots: teacher-only; students never see

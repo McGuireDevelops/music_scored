@@ -121,12 +121,18 @@ export const quizAttemptAnswerSchema = z.object({
   }),
 });
 
+export const quizCorrectionModeSchema = z.enum(["auto", "manual"]);
+export const quizGradedBySchema = z.enum(["auto", "manual", "printed_ai"]);
+
 export const quizAttemptSchema = z.object({
   quizId: z.string().min(1),
   userId: z.string().min(1),
   answers: z.array(quizAttemptAnswerSchema),
   score: z.number().optional(),
   maxScore: z.number().optional(),
+  gradedBy: quizGradedBySchema.optional(),
+  sharedWithStudentAt: z.number().optional(),
+  teacherFeedback: z.string().optional(),
 });
 
 export const quizSchema = z.object({
@@ -134,4 +140,6 @@ export const quizSchema = z.object({
   moduleId: z.string().optional(),
   ownerId: z.string().min(1),
   title: z.string().min(1),
+  correctionMode: quizCorrectionModeSchema.optional(),
+  printIdentifier: z.string().optional(),
 });

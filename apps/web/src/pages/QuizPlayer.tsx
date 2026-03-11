@@ -1,89 +1,79 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { functions, httpsCallable } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuizQuestions, useQuizAttempt, type QuizQuestionWithId } from "../hooks/useQuizzes";
-import type { MultipleChoicePayload } from "@learning-scores/shared";
-
-function computeScore(
-  questions: QuizQuestionWithId[],
-  answers: Record<string, string[]>
-): { score: number; maxScore: number } {
-  let score = 0;
-  let maxScore = 0;
-  for (const q of questions) {
-    const points = q.points ?? 1;
-    maxScore += points;
-    if (q.type !== "multipleChoiceSingle" && q.type !== "multipleChoiceMulti") {
-      continue;
-    }
-    const payload = q.payload as MultipleChoicePayload;
-    const selected = answers[q.id] ?? [];
-    if (payload.partialCreditMap) {
-      for (const key of selected) {
-        score += payload.partialCreditMap[key] ?? 0;
-      }
-    } else {
-      const correctSet = new Set(payload.correctKeys ?? []);
-      const selectedSet = new Set(selected);
-      const isCorrect =
-        correctSet.size === selectedSet.size &&
-        [...correctSet].every((k) => selectedSet.has(k));
-      if (isCorrect) score += points;
-    }
-  }
-  return { score, maxScore };
-}
 
 export default function QuizPlayer() {
   const { classId, quizId } = useParams<{ classId: string; quizId: string }>();
   const { user } = useAuth();
-  const { questions, loading } = useQuizQuestions(quizId);
-  const { attempt, loading: attemptLoading } = useQuizAttempt(quizId, user?.uid);
+  const { questions, loading } = useQuizQuestions(quizId, { forStudent: true });
+  const { attempt } = useQuizAttempt(quizId, user?.uid);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [lastScore, setLastScore] = useState<{ score: number; maxScore: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{
+    score: number | null;
+    maxScore: number;
+    pending?: boolean;
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quizId || !user) return;
     setSubmitting(true);
     try {
-      const { score, maxScore } = computeScore(questions, answers);
       const attemptAnswers = Object.entries(answers).map(([questionId, value]) => ({
         questionId,
         answer: { type: "multipleChoice", value: value ?? [] },
       }));
-      await addDoc(collection(db, "quizzes", quizId, "attempts"), {
-        quizId,
-        userId: user.uid,
-        answers: attemptAnswers,
-        score,
-        maxScore,
-        completedAt: Date.now(),
+      const submitAttempt = httpsCallable<
+        { quizId: string; answers: typeof attemptAnswers },
+        { attemptId: string; score: number | null; maxScore: number }
+      >(functions, "submitQuizAttempt");
+      const res = await submitAttempt({ quizId, answers: attemptAnswers });
+      const data = res.data;
+      setLastResult({
+        score: data.score,
+        maxScore: data.maxScore,
+        pending: data.score == null,
       });
-      setLastScore({ score, maxScore });
       setSubmitted(true);
+    } catch (err) {
+      console.error(err);
+      setLastResult({ score: null, maxScore: 0, pending: false });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const displayScore = lastScore ?? (attempt ? { score: attempt.score ?? 0, maxScore: attempt.maxScore ?? 0 } : null);
+  const canShowScore =
+    attempt?.sharedWithStudentAt != null ||
+    (lastResult && !lastResult.pending) ||
+    (attempt && attempt.gradedBy === "auto");
+
+  const displayScore =
+    lastResult && !lastResult.pending
+      ? { score: lastResult.score ?? 0, maxScore: lastResult.maxScore }
+      : attempt && canShowScore
+        ? { score: attempt.score ?? 0, maxScore: attempt.maxScore ?? 0 }
+        : null;
 
   if (attempt || submitted)
     return (
       <ProtectedRoute requiredRole="student">
         <div>
           <h2 className="mb-4 text-2xl font-semibold text-gray-900">Quiz complete</h2>
-          {displayScore != null && (
+          {displayScore != null ? (
             <p className="mb-4 text-lg">
               Score: {displayScore.score} / {displayScore.maxScore}
             </p>
-          )}
+          ) : (lastResult?.pending || (attempt && !canShowScore)) ? (
+            <p className="mb-4 text-lg text-gray-600">
+              Your submission has been received. Your teacher will grade it and share your score.
+            </p>
+          ) : null}
           <Link
             to={`/student/class/${classId}`}
             className="text-primary hover:underline"

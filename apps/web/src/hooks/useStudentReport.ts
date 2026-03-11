@@ -131,12 +131,14 @@ export function useStudentReport(
             ? null
             : attemptsSnap.docs[0].data();
 
+          const att = attemptsSnap.docs[0]?.data();
           quizStatuses.push({
             quizId: q.id,
             quizTitle: q.title,
-            score: attempt?.score,
-            maxScore: attempt?.maxScore,
-            completedAt: attempt?.completedAt,
+            score: att?.score,
+            maxScore: att?.maxScore,
+            completedAt: att?.completedAt,
+            sharedWithStudentAt: att?.sharedWithStudentAt,
           });
         }
 

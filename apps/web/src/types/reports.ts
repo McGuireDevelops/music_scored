@@ -36,4 +36,5 @@ export interface StudentQuizStatus {
   score?: number;
   maxScore?: number;
   completedAt?: number;
+  sharedWithStudentAt?: number;
 }

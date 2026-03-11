@@ -145,6 +145,9 @@ export interface QuizAttemptAnswer {
   answer: QuizAnswer;
 }
 
+export type QuizCorrectionMode = "auto" | "manual";
+export type QuizGradedBy = "auto" | "manual" | "printed_ai";
+
 export interface QuizAttempt {
   id: string;
   quizId: string;
@@ -153,6 +156,9 @@ export interface QuizAttempt {
   score?: number;
   maxScore?: number;
   completedAt: number;
+  gradedBy?: QuizGradedBy;
+  sharedWithStudentAt?: number;
+  teacherFeedback?: string;
 }
 
 export interface Quiz {
@@ -161,6 +167,8 @@ export interface Quiz {
   moduleId?: string;
   ownerId: string;
   title: string;
+  correctionMode?: QuizCorrectionMode;
+  printIdentifier?: string;
   createdAt: number;
   updatedAt: number;
 }

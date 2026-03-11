@@ -13,10 +13,21 @@ import { ref, uploadBytes } from "firebase/storage";
 import { db, storage, functions, httpsCallable } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
-import { useSubmissionFeedback, useCreateFeedback } from "../hooks/useFeedback";
+import {
+  useSubmissionFeedback,
+  useCreateFeedback,
+  type FeedbackWithId,
+} from "../hooks/useFeedback";
+import { AudioPlayer, VideoPlayer } from "../components/media";
 import { useRubrics } from "../hooks/useRubrics";
 import { AssignmentReportSection } from "../components/reports/AssignmentReportSection";
-import type { Assignment, Submission, Rubric, FeedbackCriterionResult } from "@learning-scores/shared";
+import type {
+  Assignment,
+  Submission,
+  Rubric,
+  FeedbackCriterionResult,
+  MediaReference,
+} from "@learning-scores/shared";
 import { formatUtcForDisplay } from "../utils/timezone";
 
 export default function AssignmentDetail() {
@@ -166,10 +177,7 @@ export default function AssignmentDetail() {
               <>
                 <p>Submitted at {new Date(submission.submittedAt).toLocaleString()}</p>
                 {feedback && (
-                  <div style={{ marginTop: "1rem", padding: "1rem", background: "#f5f5f5" }}>
-                    <h4>Feedback</h4>
-                    <p>{feedback.comment}</p>
-                  </div>
+                  <FeedbackDisplay feedback={feedback} />
                 )}
               </>
             ) : (
@@ -208,6 +216,24 @@ export default function AssignmentDetail() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+function FeedbackDisplay({ feedback }: { feedback: FeedbackWithId }) {
+  return (
+    <div style={{ marginTop: "1rem", padding: "1rem", background: "#f5f5f5" }}>
+      <h4>Feedback</h4>
+      {feedback.comment && <p>{feedback.comment}</p>}
+      {feedback.mediaRefs?.map((mediaRef, i) => (
+        <div key={i} style={{ marginTop: "1rem" }}>
+          {mediaRef.type === "audio" ? (
+            <AudioPlayer mediaRef={mediaRef} />
+          ) : mediaRef.type === "video" ? (
+            <VideoPlayer mediaRef={mediaRef} />
+          ) : null}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -359,12 +385,36 @@ function GiveFeedbackForm({
     rubricId: string;
     criterionResults: FeedbackCriterionResult[];
     comment?: string;
+    mediaRefs?: MediaReference[];
   }) => Promise<string | void>;
   creating: boolean;
   onSuccess?: () => void;
 }) {
   const [comment, setComment] = useState("");
   const [results, setResults] = useState<Record<string, string>>({});
+  const [mediaFiles, setMediaFiles] = useState<{ file: File; type: "audio" | "video" }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const newEntries: { file: File; type: "audio" | "video" }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isVideo = file.type.startsWith("video/");
+      const isAudio = file.type.startsWith("audio/");
+      if (isVideo) newEntries.push({ file, type: "video" });
+      else if (isAudio) newEntries.push({ file, type: "audio" });
+    }
+    if (newEntries.length) {
+      setMediaFiles((prev) => [...prev, ...newEntries]);
+    }
+    e.target.value = "";
+  };
+
+  const removeMedia = (index: number) => {
+    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -376,6 +426,26 @@ function GiveFeedbackForm({
           criterionResults.push({ criterionId: c.id, axisId: axis.id, levelId });
       }
     }
+
+    let mediaRefs: MediaReference[] | undefined;
+    if (mediaFiles.length > 0) {
+      setUploading(true);
+      try {
+        const uploadedRefs: MediaReference[] = [];
+        for (const { file, type } of mediaFiles) {
+          const storagePath = `users/${userId}/feedback/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, file, {
+            customMetadata: { userId, teacherId },
+          });
+          uploadedRefs.push({ type, resourceId: storagePath });
+        }
+        mediaRefs = uploadedRefs;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     await createFeedback({
       userId,
       teacherId,
@@ -384,6 +454,7 @@ function GiveFeedbackForm({
       rubricId,
       criterionResults,
       comment: comment.trim() || undefined,
+      mediaRefs,
     });
     onSuccess?.();
   };
@@ -423,7 +494,35 @@ function GiveFeedbackForm({
           style={{ display: "block", width: "100%", minHeight: 80 }}
         />
       </div>
-      <button type="submit" disabled={creating}>{creating ? "Saving…" : "Save feedback"}</button>
+      <div style={{ marginBottom: "1rem" }}>
+        <label>Voice note or video (optional)</label>
+        <input
+          type="file"
+          accept="audio/*,video/*"
+          multiple
+          onChange={handleMediaChange}
+          style={{ display: "block", marginTop: "0.25rem" }}
+        />
+        {mediaFiles.length > 0 && (
+          <ul style={{ marginTop: "0.5rem", padding: 0, listStyle: "none" }}>
+            {mediaFiles.map((m, i) => (
+              <li key={i} style={{ marginBottom: "0.25rem" }}>
+                {m.file.name} ({m.type})
+                <button
+                  type="button"
+                  onClick={() => removeMedia(i)}
+                  style={{ marginLeft: "0.5rem", fontSize: "0.85rem" }}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <button type="submit" disabled={creating || uploading}>
+        {creating || uploading ? "Saving…" : "Save feedback"}
+      </button>
     </form>
   );
 }

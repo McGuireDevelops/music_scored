@@ -28,12 +28,13 @@ service firebase.storage {
     }
 
     // User feedback uploads (voice/video): teacher write; student (subject) and teacher read
+    // Custom metadata keys are lowercased by Firebase: userId -> userid, teacherId -> teacherid
     match /users/{userId}/feedback/{allPaths=**} {
       allow read: if request.auth != null && (
-        resource.metadata.userId == request.auth.uid
-        || resource.metadata.teacherId == request.auth.uid
+        resource.metadata['userid'] == request.auth.uid
+        || resource.metadata['teacherid'] == request.auth.uid
       );
-      allow write: if request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      allow write: if request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['teacher', 'admin'];
     }
   }
 }

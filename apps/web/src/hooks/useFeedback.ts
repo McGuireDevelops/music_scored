@@ -8,7 +8,11 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import type { Feedback, FeedbackCriterionResult } from "@learning-scores/shared";
+import type {
+  Feedback,
+  FeedbackCriterionResult,
+  MediaReference,
+} from "@learning-scores/shared";
 
 export interface FeedbackWithId extends Feedback {
   id: string;
@@ -62,6 +66,7 @@ export function useCreateFeedback() {
     rubricId: string;
     criterionResults: FeedbackCriterionResult[];
     comment?: string;
+    mediaRefs?: MediaReference[];
   }) => {
     setCreating(true);
     try {

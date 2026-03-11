@@ -1,14 +1,13 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
-import { useQuizQuestions } from "../hooks/useQuizzes";
+import { useQuizQuestions, useQuiz } from "../hooks/useQuizzes";
 import type { QuizQuestionWithId } from "../hooks/useQuizzes";
 import type {
   QuizQuestion,
   QuizQuestionType,
   MultipleChoicePayload,
+  QuizCorrectionMode,
 } from "@learning-scores/shared";
 
 const QUESTION_TYPES: { value: QuizQuestionType; label: string }[] = [
@@ -212,25 +211,19 @@ function QuestionEditor({
 
 export default function QuizEditPage() {
   const { classId, quizId } = useParams<{ classId: string; quizId: string }>();
-  const { user } = useAuth();
+  const { quiz, loading: quizLoading, updateQuiz } = useQuiz(quizId);
   const {
     questions,
-    loading,
+    loading: questionsLoading,
     addQuestion,
     updateQuestion,
     deleteQuestion,
-  } = useQuizQuestions(quizId);
+  } = useQuizQuestions(quizId, { forTeacher: true });
   const [editingQuestion, setEditingQuestion] =
     useState<QuizQuestionWithId | null>(null);
   const [addingNew, setAddingNew] = useState(false);
-  const [quizTitle, setQuizTitle] = useState("");
 
-  useEffect(() => {
-    if (!quizId) return;
-    getDoc(doc(db, "quizzes", quizId)).then((snap) => {
-      setQuizTitle(snap.exists() ? snap.data().title ?? "Quiz" : "");
-    });
-  }, [quizId]);
+  const loading = quizLoading || questionsLoading;
 
   const handleSaveNew = async (data: Omit<QuizQuestion, "id">) => {
     await addQuestion(data);
@@ -252,15 +245,44 @@ export default function QuizEditPage() {
   return (
     <ProtectedRoute requiredRole="teacher">
       <div>
-        <Link
-          to={`/teacher/class/${classId}/quizzes`}
-          className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
-        >
-          ← Back to quizzes
-        </Link>
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight text-gray-900">
-          Edit quiz {quizTitle || "(loading…)"}
+        <div className="mb-4 flex items-center gap-4">
+          <Link
+            to={`/teacher/class/${classId}/quizzes`}
+            className="text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
+          >
+            ← Back to quizzes
+          </Link>
+          <Link
+            to={`/teacher/class/${classId}/quiz/${quizId}/attempts`}
+            className="text-sm font-medium text-primary no-underline transition-colors hover:underline"
+          >
+            View attempts
+          </Link>
+        </div>
+        <h2 className="mb-4 text-2xl font-semibold tracking-tight text-gray-900">
+          Edit quiz {quiz?.title ?? "(loading…)"}
         </h2>
+        {quiz && (
+          <div className="mb-6 flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Correction mode
+              </label>
+              <select
+                value={quiz.correctionMode ?? "auto"}
+                onChange={(e) =>
+                  updateQuiz({
+                    correctionMode: e.target.value as QuizCorrectionMode,
+                  })
+                }
+                className="rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="auto">Auto-correct after submission</option>
+                <option value="manual">Manual correction by teacher</option>
+              </select>
+            </div>
+          </div>
+        )}
         {loading && <p className="text-gray-500">Loading questions…</p>}
         {!loading && (
           <>

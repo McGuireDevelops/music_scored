@@ -14,6 +14,7 @@ import {
   createCheckoutSession,
   stripeWebhook,
 } from "./stripe/checkout";
+import { submitQuizAttempt } from "./quiz/submitAttempt";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -25,4 +26,5 @@ export {
   saveAnalysisSnapshot,
   createCheckoutSession,
   stripeWebhook,
+  submitQuizAttempt,
 };

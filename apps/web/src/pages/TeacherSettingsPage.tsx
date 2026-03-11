@@ -17,9 +17,11 @@ const FEATURE_LABELS: { key: keyof TeacherFeatureFlags; label: string }[] = [
 ];
 
 export default function TeacherSettingsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { settings, features, loading, updateFeatures, refetch } = useTeacherSettings(user?.uid);
+  // Only fetch teacherSettings when user has teacher/admin role (Firestore rules require this)
+  const canAccessSettings = profile?.role === "teacher" || profile?.role === "admin";
+  const { settings, features, loading, updateFeatures, refetch } = useTeacherSettings(canAccessSettings ? user?.uid : undefined);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);

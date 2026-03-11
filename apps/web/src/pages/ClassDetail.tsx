@@ -5,8 +5,7 @@ import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useClassModules } from "../hooks/useClassModules";
-import { useModuleLessonsWithAttached } from "../hooks/useModuleLessonsWithAttached";
-import { useTeacherLessons } from "../hooks/useTeacherLessons";
+import { useModuleLessons } from "../hooks/useModuleLessons";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
 import { useClassLiveLessons } from "../hooks/useLiveLessons";
@@ -17,7 +16,6 @@ import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { LessonViewer } from "../components/LessonViewer";
 import { LessonBuilderForm } from "../components/LessonBuilderForm";
 import { SortableLessonItem } from "../components/SortableLessonItem";
-import { AddExistingLessonModal } from "../components/AddExistingLessonModal";
 import {
   DndContext,
   closestCenter,
@@ -65,8 +63,6 @@ export default function ClassDetail() {
   const [activeTab, setActiveTab] = useState<Tab>("curriculum");
   const [selectedModule, setSelectedModule] = useState<ModuleWithId | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithId | null>(null);
-  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
-
   const {
     modules,
     loading: modulesLoading,
@@ -77,17 +73,11 @@ export default function ClassDetail() {
 
   const {
     lessons,
-    allItems,
     loading: lessonsLoading,
     createLesson,
     updateLesson,
     reorderLessons,
-    attachLesson,
-  } = useModuleLessonsWithAttached(id, selectedModule?.id);
-
-  const { lessons: teacherLessons } = useTeacherLessons(
-    showAddExistingModal && isTeacherRoute ? user?.uid : undefined
-  );
+  } = useModuleLessons(id, selectedModule?.id);
 
   const {
     assignments,
@@ -184,10 +174,6 @@ export default function ClassDetail() {
                   isTeacher={isTeacherRoute}
                   modules={modules}
                   lessons={lessons}
-                  allItems={allItems}
-                  teacherLessons={teacherLessons}
-                  showAddExistingModal={showAddExistingModal}
-                  setShowAddExistingModal={setShowAddExistingModal}
                   modulesLoading={modulesLoading}
                   lessonsLoading={lessonsLoading}
                   modulesError={modulesError}
@@ -199,10 +185,7 @@ export default function ClassDetail() {
                   createLesson={createLesson}
                   updateLesson={updateLesson}
                   reorderLessons={reorderLessons}
-                  attachLesson={attachLesson}
                   deleteModule={deleteModule}
-                  showAddExistingModal={showAddExistingModal}
-                  setShowAddExistingModal={setShowAddExistingModal}
                   classId={id!}
                   userId={user?.uid ?? ""}
                 />
@@ -302,8 +285,6 @@ function CurriculumTab({
   isTeacher,
   modules,
   lessons,
-  allItems,
-  teacherLessons,
   modulesLoading,
   lessonsLoading,
   modulesError,
@@ -315,20 +296,13 @@ function CurriculumTab({
   createLesson,
   updateLesson,
   reorderLessons,
-  attachLesson,
   deleteModule,
-  showAddExistingModal,
-  setShowAddExistingModal,
   classId,
   userId,
 }: {
   isTeacher: boolean;
   modules: ModuleWithId[];
   lessons: LessonWithId[];
-  allItems: import("../hooks/useModuleLessonsWithAttached").ModuleLessonItem[];
-  teacherLessons: import("../hooks/useTeacherLessons").TeacherLessonEnriched[];
-  showAddExistingModal: boolean;
-  setShowAddExistingModal: (show: boolean) => void;
   modulesLoading: boolean;
   lessonsLoading: boolean;
   modulesError: string | null;
@@ -340,7 +314,6 @@ function CurriculumTab({
   createLesson: (data: Omit<LessonWithId, "id">, ownerId: string) => Promise<void>;
   updateLesson: (lessonId: string, data: Partial<LessonWithId>) => Promise<void>;
   reorderLessons: (fromIndex: number, toIndex: number) => Promise<void>;
-  attachLesson: (sourceLessonId: string, sourceClassId: string) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
   classId: string;
   userId: string;
@@ -356,24 +329,6 @@ function CurriculumTab({
 
   const handleCreateModule = async (name: string) => {
     await createModule({ name, releaseMode: "time-released" });
-  };
-
-  const handleCloneLesson = async (source: LessonWithId) => {
-    if (!selectedModule || !userId) return;
-    await createLesson(
-      {
-        classId,
-        moduleId: selectedModule.id,
-        ownerId: userId,
-        title: source.title,
-        type: source.type,
-        content: source.content,
-        summary: source.summary,
-        mediaRefs: source.mediaRefs,
-        order: lessons.length,
-      },
-      userId
-    );
   };
 
   const handleSaveLesson = async (
@@ -446,11 +401,11 @@ function CurriculumTab({
               <p className="mb-4 text-sm text-red-600">{modulesError}</p>
             )}
             {lessonsLoading && <p className="text-gray-500">Loading lessons…</p>}
-            {!lessonsLoading && allItems.length === 0 && !isTeacher && (
+            {!lessonsLoading && lessons.length === 0 && !isTeacher && (
               <p className="text-gray-600">No lessons in this module.</p>
             )}
             {isTeacher && selectedModule && (
-              <div className="mb-6 flex gap-2">
+              <div className="mb-6">
                 <button
                   type="button"
                   onClick={() => {
@@ -461,23 +416,8 @@ function CurriculumTab({
                 >
                   Add lesson
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddExistingModal(true)}
-                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Add existing lesson
-                </button>
               </div>
             )}
-            <AddExistingLessonModal
-              isOpen={showAddExistingModal}
-              onClose={() => setShowAddExistingModal(false)}
-              teacherLessons={teacherLessons}
-              currentModuleLessonIds={allItems.map((i) => i.lesson.id)}
-              onAttach={attachLesson}
-              onClone={handleCloneLesson}
-            />
             {((showLessonForm === "create") || (showLessonForm === "edit" && selectedLesson)) && selectedModule && isTeacher && (
               <div className="mb-6 rounded-card border border-gray-200 bg-white p-6 shadow-card">
                 <h4 className="mb-4 font-semibold text-gray-900">
@@ -497,16 +437,15 @@ function CurriculumTab({
                 />
               </div>
             )}
-            {!lessonsLoading && allItems.length > 0 && showLessonForm !== "create" && (
+            {!lessonsLoading && lessons.length > 0 && showLessonForm !== "create" && (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={(event: DragEndEvent) => {
                   const { active, over } = event;
                   if (over && active.id !== over.id) {
-                    const ownedIds = lessons.map((l) => l.id);
-                    const oldIndex = ownedIds.indexOf(active.id as string);
-                    const newIndex = ownedIds.indexOf(over.id as string);
+                    const oldIndex = lessons.findIndex((l) => l.id === active.id);
+                    const newIndex = lessons.findIndex((l) => l.id === over.id);
                     if (oldIndex >= 0 && newIndex >= 0) {
                       reorderLessons(oldIndex, newIndex);
                     }
@@ -518,36 +457,18 @@ function CurriculumTab({
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
-                    {allItems.map((item) =>
-                      item.type === "owned" ? (
-                        <SortableLessonItem
-                          key={item.id}
-                          lesson={item.lesson}
-                          isSelected={selectedLesson?.id === item.lesson.id}
-                          onSelect={() => {
-                            setSelectedLesson(item.lesson);
-                            setShowLessonForm(null);
-                          }}
-                          disabled={!isTeacher}
-                        />
-                      ) : (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedLesson(item.lesson);
-                            setShowLessonForm(null);
-                          }}
-                          className={`block w-full rounded-lg px-4 py-3 text-left text-sm transition-colors ${
-                            selectedLesson?.id === item.lesson.id
-                              ? "bg-gray-100 font-medium text-gray-900"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <span className="text-primary/80">↗ {item.lesson.title}</span>
-                        </button>
-                      )
-                    )}
+                    {lessons.map((l) => (
+                      <SortableLessonItem
+                        key={l.id}
+                        lesson={l}
+                        isSelected={selectedLesson?.id === l.id}
+                        onSelect={() => {
+                          setSelectedLesson(l);
+                          setShowLessonForm(null);
+                        }}
+                        disabled={!isTeacher}
+                      />
+                    ))}
                   </div>
                 </SortableContext>
               </DndContext>

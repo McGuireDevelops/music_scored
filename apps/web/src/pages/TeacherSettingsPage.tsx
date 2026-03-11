@@ -76,7 +76,7 @@ export default function TeacherSettingsPage() {
     <ProtectedRoute requiredRole="teacher">
       <div>
         <Link
-          to="/teacher"
+          to="/"
           className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
         >
           ← Back to dashboard

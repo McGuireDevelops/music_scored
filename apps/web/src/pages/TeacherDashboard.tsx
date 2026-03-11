@@ -139,7 +139,7 @@ export default function TeacherDashboard() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="mb-2 text-2xl font-semibold tracking-tight text-gray-900">
-              Teaching
+              Dashboard
             </h1>
             <p className="text-gray-600">
               Manage your classes and course content

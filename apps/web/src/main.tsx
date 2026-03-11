@@ -1,13 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import SignIn from "./pages/SignIn";
 import StudentDashboard from "./pages/StudentDashboard";
-import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ClassDetail from "./pages/ClassDetail";
 import AssignmentDetail from "./pages/AssignmentDetail";
@@ -51,7 +50,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="student/portfolio" element={<PortfolioPage />} />
               <Route path="student/certifications" element={<CertificationsPage />} />
               <Route path="purchase/:classId" element={<PurchaseClassPage />} />
-              <Route path="teacher" element={<TeacherDashboard />} />
+              <Route path="teacher" element={<Navigate to="/" replace />} />
               <Route path="teacher/students" element={<TeacherStudentsPage />} />
               <Route path="teacher/community" element={<TeacherCommunityHub />} />
               <Route path="teacher/lessons" element={<TeacherLessonsPage />} />

@@ -109,7 +109,7 @@ export default function ClassDetail() {
     <ProtectedRoute requiredRole={isTeacherRoute ? "teacher" : "student"}>
       <div>
         <Link
-          to={isTeacherRoute ? "/teacher" : "/student"}
+          to={isTeacherRoute ? "/" : "/student"}
           className="mb-4 inline-block text-sm text-gray-600 no-underline transition-colors hover:text-gray-900"
         >
           ← Back to dashboard

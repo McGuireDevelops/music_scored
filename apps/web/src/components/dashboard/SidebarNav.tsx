@@ -11,7 +11,6 @@ const navItems: {
 }[] = [
   { to: "/", label: "Dashboard" },
   { to: "/student", label: "Courses", roles: ["student", "admin"] },
-  { to: "/teacher", label: "Teaching", roles: ["teacher", "admin"] },
   { to: "/teacher/students", label: "Students", roles: ["teacher", "admin"] },
   { to: "/teacher/community", label: "Community", roles: ["teacher", "admin"], featureKey: "community" },
   { to: "/teacher/lessons", label: "Lessons", roles: ["teacher", "admin"], featureKey: "liveLessons" },

@@ -109,10 +109,10 @@ export default function TeacherCommunityHub() {
               No classes yet. Create a class to get a community space.
             </p>
             <Link
-              to="/teacher"
+              to="/"
               className="mt-4 inline-block font-medium text-primary no-underline hover:underline"
             >
-              Go to Teaching
+              Go to Dashboard
             </Link>
           </div>
         )}

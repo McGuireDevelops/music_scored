@@ -47,19 +47,24 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
   const { branding } = useTenant();
   const { features, permissionError } = useTeacherSettings(profile?.role === "teacher" || profile?.role === "admin" ? user?.uid : undefined);
 
-  const visibleItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    if (!user || !profile) return false;
-    if (!item.roles.includes(profile.role)) return false;
-    if (item.featureKey !== undefined && features[item.featureKey] === false) return false;
-    return true;
-  });
-
   const classMatch = location.pathname.match(/^\/(teacher|student)\/class\/([^/]+)/);
   const classBasePath = classMatch ? `/${classMatch[1]}/class/${classMatch[2]}` : null;
   const currentTab = classBasePath
     ? new URLSearchParams(location.search).get("tab") || "curriculum"
     : null;
+
+  const duplicateLabelsWhenInClass = ["Lessons", "Assignments", "Quizzes"];
+  const visibleItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    if (!user || !profile) return false;
+    if (!item.roles.includes(profile.role)) return false;
+    if (item.featureKey !== undefined && features[item.featureKey] === false) return false;
+    if (classBasePath && duplicateLabelsWhenInClass.includes(item.label)) return false;
+    return true;
+  });
+
+  const firstItems = visibleItems.filter((item) => item.label === "Dashboard" || item.label === "Students");
+  const restItems = visibleItems.filter((item) => item.label !== "Dashboard" && item.label !== "Students");
 
   return (
     <aside
@@ -77,6 +82,21 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
         {branding.tenantName ?? "Learning Scores"}
       </Link>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
+        {firstItems.map((item) => (
+          <SidebarNavLink
+            key={item.label}
+            to={item.to}
+            current={
+              item.to !== "#"
+                ? location.pathname === item.to ||
+                  (item.to !== "/" &&
+                    location.pathname.startsWith(item.to + "/"))
+                : false
+            }
+          >
+            {item.label}
+          </SidebarNavLink>
+        ))}
         {classBasePath ? (
           <>
             <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/50">
@@ -94,7 +114,7 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
             <div className="my-2 border-t border-white/10" />
           </>
         ) : null}
-        {visibleItems.map((item) => (
+        {restItems.map((item) => (
           <SidebarNavLink
             key={item.label}
             to={item.to}

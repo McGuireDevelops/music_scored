@@ -7,6 +7,12 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { checkRateLimit } from "../utils/rateLimit";
+import { validateInput } from "../validation";
+import {
+  requestAnalysisSchema,
+  saveAnalysisSnapshotSchema,
+} from "../validation/schemas";
 
 interface RequestAnalysisInput {
   source: string;
@@ -90,17 +96,16 @@ Return JSON: { "summary": string, "segments": array, "tags": array }`
  * Uses Gemini when GEMINI_API_KEY is set.
  */
 export const requestAnalysis = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
-    await assertTeacher(request.auth.uid);
+    const uid = request.auth.uid;
+    await assertTeacher(uid);
+    await checkRateLimit("requestAnalysis", uid);
 
-    const data = request.data as RequestAnalysisInput;
-    if (!data?.source || !data?.sourceId) {
-      throw new HttpsError("invalid-argument", "source and sourceId required");
-    }
+    const data = validateInput(requestAnalysisSchema, request.data) as RequestAnalysisInput;
 
     const aiResult = await analyzeWithGemini(data.mediaRef, data.sourceId);
 
@@ -126,7 +131,7 @@ export const requestAnalysis = onCall(
  * Teacher-only; writes edited result to analysisSnapshots collection.
  */
 export const saveAnalysisSnapshot = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
@@ -134,12 +139,9 @@ export const saveAnalysisSnapshot = onCall(
     const uid = request.auth.uid;
     await assertTeacher(uid);
 
-    const data = request.data as SaveAnalysisSnapshotInput;
-    if (!data?.source || !data?.sourceId || !data?.payload) {
-      throw new HttpsError(
-        "invalid-argument",
-        "source, sourceId, and payload required"
-      );
+    const data = validateInput(saveAnalysisSnapshotSchema, request.data) as SaveAnalysisSnapshotInput;
+    if (JSON.stringify(data.payload).length > 100 * 1024) {
+      throw new HttpsError("invalid-argument", "Payload too large");
     }
 
     const snapshot = {

@@ -3,6 +3,8 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { validateInput } from "../validation";
+import { submitQuizAttemptSchema } from "../validation/schemas";
 
 interface SubmitAttemptInput {
   quizId: string;
@@ -44,16 +46,13 @@ function computeScoreFromAnswerKey(
 }
 
 export const submitQuizAttempt = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
     const uid = request.auth.uid;
-    const data = request.data as SubmitAttemptInput;
-    if (!data?.quizId || !Array.isArray(data?.answers)) {
-      throw new HttpsError("invalid-argument", "quizId and answers required");
-    }
+    const data = validateInput(submitQuizAttemptSchema, request.data) as SubmitAttemptInput;
 
     const db = admin.firestore();
     const quizRef = db.doc(`quizzes/${data.quizId}`);

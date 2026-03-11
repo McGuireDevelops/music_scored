@@ -7,6 +7,10 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
+import { getSafeOrigin } from "../utils/origin";
+import { checkRateLimit } from "../utils/rateLimit";
+import { validateInput } from "../validation";
+import { createCheckoutSessionSchema } from "../validation/schemas";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 
@@ -17,18 +21,16 @@ const GRANT_DURATION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
  * Creates Stripe Checkout Session for a paid class. Returns URL to redirect.
  */
 export const createCheckoutSession = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
     const uid = request.auth.uid;
+    await checkRateLimit("createCheckoutSession", uid);
     const email = request.auth.token.email as string | undefined;
 
-    const classId = request.data?.classId as string | undefined;
-    if (!classId) {
-      throw new HttpsError("invalid-argument", "classId required");
-    }
+    const { classId } = validateInput(createCheckoutSessionSchema, request.data);
 
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new HttpsError(
@@ -51,7 +53,9 @@ export const createCheckoutSession = onCall(
       );
     }
 
-    const origin = request.rawRequest.headers.origin ?? "http://localhost:5173";
+    const origin = getSafeOrigin(
+      request.rawRequest.headers.origin as string | undefined
+    );
     const successUrl = `${origin}/student?checkout=success`;
     const cancelUrl = `${origin}/purchase/${classId}?checkout=cancelled`;
 

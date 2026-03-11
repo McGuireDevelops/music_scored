@@ -90,12 +90,18 @@ export default function AssignmentDetail() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignmentId || !classId || !user?.uid || !file) return;
+    if (!assignmentId || !classId || !user?.uid || !file || !assignment?.ownerId)
+      return;
     setSubmitting(true);
     try {
       const path = `assignments/${assignmentId}/submissions/${user.uid}/${file.name}`;
       const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, file, {
+        customMetadata: {
+          userId: user.uid,
+          teacherId: assignment.ownerId,
+        },
+      });
       await addDoc(
         collection(db, "assignments", assignmentId, "submissions"),
         {

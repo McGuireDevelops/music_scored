@@ -349,5 +349,10 @@ service cloud.firestore {
       );
       allow write: if isTeacher() || isAdmin();
     }
+
+    // Rate limits: backend-only (Cloud Functions Admin SDK); no client access
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
   }
 }

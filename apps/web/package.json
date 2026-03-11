@@ -12,6 +12,7 @@
   "dependencies": {
     "@learning-scores/firebase": "workspace:*",
     "@learning-scores/shared": "workspace:*",
+    "dompurify": "^3.3.3",
     "firebase": "^10.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -19,6 +20,7 @@
     "recharts": "^2.12.0"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",

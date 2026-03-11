@@ -30,8 +30,11 @@ Add these in **Vercel → Project → Settings → Environment Variables**:
 | `VITE_FIREBASE_STORAGE_BUCKET` | e.g. `your-project.appspot.com` |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase app ID |
+| `VITE_APP_CHECK_RECAPTCHA_SITE_KEY` | App Check reCAPTCHA v3 site key (required for Cloud Functions) |
 
 Get these from [Firebase Console](https://console.firebase.google.com) → your project → **Project settings** (gear) → **General** → **Your apps** → Web app config.
+
+**App Check:** Register your web app in Firebase Console → **App Check** → Add provider (reCAPTCHA v3) and copy the site key. Cloud Functions enforce App Check; without this key, callable requests will be rejected.
 
 ---
 
@@ -51,8 +54,11 @@ Set these for Cloud Functions (Firebase Console → Functions → select functio
 | `GEMINI_API_KEY` | Optional. Google AI key for AI analysis of submissions |
 | `STRIPE_SECRET_KEY` | Stripe secret key for paid classes |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (from Stripe Dashboard → Webhooks) |
+| `ALLOWED_ORIGINS` | Comma-separated origins for Stripe redirect URLs (e.g. `https://yourdomain.com,http://localhost:5173`) |
 
 For Stripe webhook: create a webhook in Stripe pointing to your function URL (e.g. `https://us-central1-YOUR_PROJECT.cloudfunctions.net/stripeWebhook`) for events `checkout.session.completed` and `account.updated` (for Stripe Connect). Use the signing secret as `STRIPE_WEBHOOK_SECRET`.
+
+**Security best practice:** Store `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `GEMINI_API_KEY` in [Firebase Secret Manager](https://firebase.google.com/docs/functions/config-env#secret-manager) or Firebase Functions config. Never commit secrets to version control.
 
 ### Deploy Firebase
 

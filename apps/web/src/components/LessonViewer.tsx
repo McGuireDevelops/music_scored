@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import type { LessonWithId } from "../hooks/useModuleLessons";
 import { AudioPlayer, VideoPlayer, ScoreViewer } from "./media";
 import type { MediaReference } from "@learning-scores/shared";
@@ -28,7 +29,12 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
       {lesson.content && (
         <div
           className="mb-6 max-w-none whitespace-pre-wrap text-gray-700 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: lesson.content }}
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(lesson.content, {
+              ALLOWED_TAGS: ["p", "b", "i", "u", "em", "strong", "a", "br", "ul", "ol", "li"],
+              ALLOWED_ATTR: ["href", "target", "rel"],
+            }),
+          }}
         />
       )}
       {lesson.mediaRefs?.map((mediaRef, i) => (

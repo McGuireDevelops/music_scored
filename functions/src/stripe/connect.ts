@@ -5,6 +5,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
+import { getSafeOrigin } from "../utils/origin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 
@@ -14,7 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
  * Creates a new Express connected account if none exists.
  */
 export const getStripeConnectOnboardingLink = onCall(
-  { enforceAppCheck: false },
+  { enforceAppCheck: true },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
@@ -70,7 +71,9 @@ export const getStripeConnectOnboardingLink = onCall(
       );
     }
 
-    const origin = request.rawRequest.headers.origin ?? "http://localhost:5173";
+    const origin = getSafeOrigin(
+      request.rawRequest.headers.origin as string | undefined
+    );
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${origin}/teacher/settings?stripe=refresh`,

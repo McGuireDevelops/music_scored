@@ -1,48 +1,68 @@
 rules_version = '2';
 // Professional Film Music Learning Platform – Firestore security rules.
 // Role-based: student, teacher, admin. Access uses AccessGrant + role only; no payment in access path.
+// IMPORTANT: Firestore limits rules to 10 get()/exists() calls per evaluation.
+// All helpers share a single get() for the user doc via cachedRole().
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User has valid access grant for class. Grants stored under users/{uid}/accessGrants/{classId} (or grantId with classId in scope).
-    // Also allow teacher who owns class and admin.
-    function hasValidAccessGrant(classId) {
-      let uid = request.auth.uid;
-      let userDoc = get(/databases/$(database)/documents/users/$(uid));
-      let role = userDoc.exists == true ? userDoc.data.get('role', null) : null;
-      let teacherOwns = role == 'teacher' && exists(/databases/$(database)/documents/classes/$(classId))
-        && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == uid;
-      let admin = role == 'admin';
-      let grantPath = /databases/$(database)/documents/users/$(uid)/accessGrants/$(classId);
-      let hasGrant = exists(grantPath) && get(grantPath).data.validFrom <= request.time.toMillis() && get(grantPath).data.validTo >= request.time.toMillis();
-      return request.auth != null && (teacherOwns || admin || (role == 'student' && hasGrant));
-    }
-
-    function userRole() {
+    // Single get() for the authenticated user's role — every helper should use this
+    // instead of calling get() on the user doc independently.
+    function cachedRole() {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       return userDoc.exists == true ? userDoc.data.get('role', null) : null;
     }
 
     function isTeacher() {
-      return request.auth != null && userRole() == 'teacher';
+      return request.auth != null && cachedRole() == 'teacher';
     }
 
     function isStudent() {
-      return request.auth != null && userRole() == 'student';
+      return request.auth != null && cachedRole() == 'student';
     }
 
     function isAdmin() {
-      return request.auth != null && userRole() == 'admin';
+      return request.auth != null && cachedRole() == 'admin';
     }
 
+    // Check if the authenticated user is the teacher who owns this class.
+    // Costs: 1 get (cachedRole) + 1 get (class doc) = 2 gets.
     function isClassTeacher(classId) {
-      return isTeacher() && exists(/databases/$(database)/documents/classes/$(classId))
+      return request.auth != null && cachedRole() == 'teacher'
         && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
     }
 
-    // Student can access class content only if they have a valid grant AND have fulfilled mandatory entry requirements
-    // (NDA, end-user agreement, etc.). Enrollment doc id must be userId for this check.
+    // Lightweight ownership check that skips the role lookup — use when the caller
+    // already verified the role or when combined with isClassTeacher in an OR chain.
+    // Costs: 1 get (class doc).
+    function ownsClass(classId) {
+      return get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+    }
+
+    // Student has a valid time-bound access grant for the class.
+    // Costs: 1 exists + 1 get (grant doc) = 2 calls.
+    function hasStudentGrant(classId) {
+      let grantPath = /databases/$(database)/documents/users/$(request.auth.uid)/accessGrants/$(classId);
+      return exists(grantPath)
+        && get(grantPath).data.validFrom <= request.time.toMillis()
+        && get(grantPath).data.validTo >= request.time.toMillis();
+    }
+
+    // Full access-grant check including teacher-owns and admin bypass.
+    // Costs: 1 get (cachedRole) + at most 2 more (class doc or grant doc).
+    function hasValidAccessGrant(classId) {
+      let role = cachedRole();
+      return request.auth != null && (
+        role == 'admin'
+        || (role == 'teacher' && ownsClass(classId))
+        || (role == 'student' && hasStudentGrant(classId))
+      );
+    }
+
+    // Student can access class content only if they have a valid grant AND have
+    // fulfilled mandatory entry requirements (NDA, end-user agreement, etc.).
+    // Costs: 1 get (cachedRole) + 2 (grant) + 1 get (class doc) + 1 get (enrollment) = 5 max.
     function hasFulfilledMandatoryRequirements(classId) {
       let classDoc = get(/databases/$(database)/documents/classes/$(classId));
       let mandatoryIds = classDoc.exists && classDoc.data != null ? classDoc.data.get('mandatoryRequirementIds', []) : [];
@@ -52,7 +72,8 @@ service cloud.firestore {
     }
 
     function studentCanAccessClassContent(classId) {
-      return isStudent() && hasValidAccessGrant(classId) && hasFulfilledMandatoryRequirements(classId);
+      return request.auth != null && cachedRole() == 'student'
+        && hasStudentGrant(classId) && hasFulfilledMandatoryRequirements(classId);
     }
 
     // Users: own doc; admin read/update all; teachers can read (for roster/student list)
@@ -79,7 +100,6 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if request.auth != null && (
         resource.data.teacherId == request.auth.uid
-        || isClassTeacher(classId)
         || studentCanAccessClassContent(classId)
         || isAdmin()
       );
@@ -130,7 +150,7 @@ service cloud.firestore {
 
     match /modules/{moduleId} {
       allow read: if request.auth != null && (
-        isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow write: if (isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid)
         || (isAdmin() && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId)));
@@ -147,7 +167,7 @@ service cloud.firestore {
     match /lessons/{lessonId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
@@ -162,7 +182,7 @@ service cloud.firestore {
     match /liveLessons/{lessonId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
@@ -172,7 +192,7 @@ service cloud.firestore {
     match /assignments/{assignmentId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
@@ -216,7 +236,7 @@ service cloud.firestore {
     match /quizzes/{quizId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
@@ -261,7 +281,7 @@ service cloud.firestore {
     match /communities/{communityId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
       allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
@@ -276,11 +296,11 @@ service cloud.firestore {
       allow update, delete: if resource.data.authorId == request.auth.uid || isClassTeacher(get(/databases/$(database)/documents/communities/$(communityId)).data.classId);
     }
 
-    // Portfolio: student-controlled
+    // Portfolio: student-controlled; teachers can read items for classes they teach
     match /portfolioItems/{itemId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
-        || isClassTeacher(resource.data.classId)
+        || ownsClass(resource.data.classId)
         || isAdmin()
       );
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
@@ -301,7 +321,7 @@ service cloud.firestore {
     // Certificate templates: teacher CRUD for own class; admin full access
     match /certificateTemplates/{templateId} {
       allow read: if request.auth != null && (
-        isClassTeacher(resource.data.classId)
+        ownsClass(resource.data.classId)
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
@@ -313,7 +333,7 @@ service cloud.firestore {
     match /classCompletions/{completionId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
-        || isClassTeacher(resource.data.classId)
+        || ownsClass(resource.data.classId)
         || isAdmin()
       );
       allow create: if isTeacher() || isAdmin();
@@ -323,7 +343,8 @@ service cloud.firestore {
     // Playlists: teacher CRUD for own class; admin full access; students read if they can access class
     match /playlists/{playlistId} {
       allow read: if request.auth != null && (
-        isClassTeacher(resource.data.classId)
+        resource.data.ownerId == request.auth.uid
+        || ownsClass(resource.data.classId)
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
@@ -333,7 +354,8 @@ service cloud.firestore {
 
     match /playlists/{playlistId}/items/{itemId} {
       allow read: if request.auth != null && (
-        isClassTeacher(get(/databases/$(database)/documents/playlists/$(playlistId)).data.classId)
+        get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerId == request.auth.uid
+        || ownsClass(get(/databases/$(database)/documents/playlists/$(playlistId)).data.classId)
         || studentCanAccessClassContent(get(/databases/$(database)/documents/playlists/$(playlistId)).data.classId)
         || isAdmin()
       );
@@ -354,14 +376,14 @@ service cloud.firestore {
 
     // Teacher settings: teacher/admin read and write own
     match /teacherSettings/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId && userRole() in ['teacher', 'admin'];
+      allow read, write: if request.auth != null && request.auth.uid == userId && cachedRole() in ['teacher', 'admin'];
     }
 
     // Enrollments (top-level if used)
     match /enrollments/{enrollmentId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
-        || isClassTeacher(resource.data.classId)
+        || ownsClass(resource.data.classId)
         || isAdmin()
       );
       allow write: if isTeacher() || isAdmin();
@@ -370,8 +392,8 @@ service cloud.firestore {
     // Teacher availability for 1-on-1 bookings: teacher/admin writes own; authenticated users read (students browse slots)
     match /teacherAvailability/{teacherId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == teacherId && userRole() in ['teacher', 'admin'];
-      allow update, delete: if request.auth != null && request.auth.uid == teacherId && userRole() in ['teacher', 'admin'];
+      allow create: if request.auth != null && request.auth.uid == teacherId && cachedRole() in ['teacher', 'admin'];
+      allow update, delete: if request.auth != null && request.auth.uid == teacherId && cachedRole() in ['teacher', 'admin'];
     }
 
     // Bookings: teacher or student involved can read; writes only via Cloud Functions (Admin SDK)

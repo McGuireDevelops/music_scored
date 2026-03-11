@@ -27,7 +27,7 @@ export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { profile, user } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
   const isTeacherRoute = pathname.startsWith("/teacher");
   const tabParam = searchParams.get("tab");
   const activeTab: Tab =
@@ -36,18 +36,22 @@ export default function ClassDetail() {
   const [classDescription, setClassDescription] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
+  // Gate all Firestore queries behind auth readiness to avoid
+  // "Missing or insufficient permissions" on page refresh.
+  const safeClassId = !authLoading && user ? id : undefined;
+
   const {
     cohorts,
     loading: cohortsLoading,
     createCohort,
     deleteCohort,
-  } = useClassCohorts(id);
+  } = useClassCohorts(safeClassId);
   const {
     enrollments,
     loading: enrollmentsLoading,
     addEnrollment,
     removeEnrollment,
-  } = useClassEnrollments(id);
+  } = useClassEnrollments(safeClassId);
   const { issueCertification } = useIssueCertification(user?.uid);
   const {
     getStatus: getPlaylistStatus,
@@ -62,8 +66,8 @@ export default function ClassDetail() {
   }, [id, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (!id) return;
-    getDoc(doc(db, "classes", id))
+    if (!safeClassId) return;
+    getDoc(doc(db, "classes", safeClassId))
       .then((snap) => {
         if (snap.exists()) {
           const data = snap.data();
@@ -79,7 +83,7 @@ export default function ClassDetail() {
         setClassDescription(undefined);
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [safeClassId]);
 
   return (
     <ProtectedRoute requiredRole={isTeacherRoute ? "teacher" : "student"}>
@@ -118,32 +122,32 @@ export default function ClassDetail() {
               )}
             </div>
             <div className="mt-6">
-              {activeTab === "builder" && isTeacherRoute && (
+              {activeTab === "builder" && isTeacherRoute && safeClassId && (
                 <CourseBuilder
-                  classId={id!}
+                  classId={safeClassId}
                   className={className}
                   classDescription={classDescription}
                   userId={user?.uid ?? ""}
                 />
               )}
-              {activeTab === "builder" && !isTeacherRoute && (
-                <StudentCourseView classId={id!} />
+              {activeTab === "builder" && !isTeacherRoute && safeClassId && (
+                <StudentCourseView classId={safeClassId} />
               )}
-              {activeTab === "live" && isTeacherRoute && (
-                <LiveClassesTab classId={id!} userId={user?.uid ?? ""} />
+              {activeTab === "live" && isTeacherRoute && safeClassId && (
+                <LiveClassesTab classId={safeClassId} userId={user?.uid ?? ""} />
               )}
-              {activeTab === "live" && !isTeacherRoute && (
-                <StudentLiveClassesView classId={id!} />
+              {activeTab === "live" && !isTeacherRoute && safeClassId && (
+                <StudentLiveClassesView classId={safeClassId} />
               )}
-              {activeTab === "quizzes" && isTeacherRoute && (
-                <QuizzesTab classId={id!} />
+              {activeTab === "quizzes" && isTeacherRoute && safeClassId && (
+                <QuizzesTab classId={safeClassId} />
               )}
-              {activeTab === "reports" && isTeacherRoute && (
-                <ClassReportsTab classId={id!} />
+              {activeTab === "reports" && isTeacherRoute && safeClassId && (
+                <ClassReportsTab classId={safeClassId} />
               )}
-              {activeTab === "playlists" && (
+              {activeTab === "playlists" && safeClassId && (
                 <PlaylistManager
-                  classId={id!}
+                  classId={safeClassId}
                   isTeacher={isTeacherRoute}
                   ownerId={user?.uid ?? ""}
                   progressHandlers={
@@ -158,7 +162,7 @@ export default function ClassDetail() {
                   }
                 />
               )}
-              {activeTab === "roster" && isTeacherRoute && (
+              {activeTab === "roster" && isTeacherRoute && safeClassId && (
                 <RosterTab
                   cohorts={cohorts}
                   enrollments={enrollments}
@@ -169,7 +173,7 @@ export default function ClassDetail() {
                   addEnrollment={addEnrollment}
                   removeEnrollment={removeEnrollment}
                   issueCertification={issueCertification}
-                  classId={id!}
+                  classId={safeClassId}
                 />
               )}
               {activeTab === "community" && (

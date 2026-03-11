@@ -19,11 +19,11 @@ export default function RubricBuilder() {
   ]);
 
   useEffect(() => {
-    if (classId)
+    if (classId && user)
       getDoc(doc(db, "classes", classId)).then((s) =>
         setClassName(s.exists() ? s.data().name : "Class")
       );
-  }, [classId]);
+  }, [classId, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

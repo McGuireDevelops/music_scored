@@ -56,7 +56,7 @@ export default function AssignmentDetail() {
   const { rubrics } = useRubrics(isTeacher ? user?.uid : undefined);
 
   useEffect(() => {
-    if (!assignmentId) return;
+    if (!assignmentId || !user) return;
     getDoc(doc(db, "assignments", assignmentId))
       .then((snap) => {
         if (snap.exists())
@@ -64,7 +64,7 @@ export default function AssignmentDetail() {
         else setAssignment(null);
       })
       .finally(() => setLoading(false));
-  }, [assignmentId]);
+  }, [assignmentId, user]);
 
   useEffect(() => {
     if (!assignmentId || !user?.uid) return;

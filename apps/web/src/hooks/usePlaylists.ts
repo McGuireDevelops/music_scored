@@ -10,6 +10,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { getPermissionErrorMessage, isFirebasePermissionError } from "../utils/firebaseErrors";
 import type { Playlist, PlaylistType } from "@learning-scores/shared";
 
 export interface PlaylistWithId extends Playlist {
@@ -39,9 +40,13 @@ export function usePlaylists(classId: string | undefined) {
         list.sort((a, b) => a.order - b.order);
         setPlaylists(list);
       })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load playlists")
-      )
+      .catch((err) => {
+        if (isFirebasePermissionError(err)) {
+          setError(getPermissionErrorMessage(err, "Failed to load playlists"));
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load playlists");
+        }
+      })
       .finally(() => setLoading(false));
   }, [classId]);
 

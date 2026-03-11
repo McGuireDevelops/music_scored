@@ -8,8 +8,8 @@ const PERMISSION_DENIED_CODES = [
   "storage/unauthorized",
 ];
 
-const ADMIN_ROLE_HINT =
-  "If you're an admin, ensure your user document in Firestore (users collection) has role: 'admin'. See DEPLOYMENT_GUIDE.md for setup.";
+const ROLE_HINT =
+  "If you're an admin, ensure your user document in Firestore (users collection) has role: 'admin'. If you're a teacher, ensure your user document has role: 'teacher'. See DEPLOYMENT_GUIDE.md for setup.";
 
 export function isFirebasePermissionError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
@@ -28,5 +28,5 @@ export function getPermissionErrorMessage(
   if (!isFirebasePermissionError(err)) {
     return err instanceof Error ? err.message : fallback;
   }
-  return `Missing or insufficient permissions. ${ADMIN_ROLE_HINT}`;
+  return `Missing or insufficient permissions. ${ROLE_HINT}`;
 }

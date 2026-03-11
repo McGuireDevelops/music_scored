@@ -21,11 +21,11 @@ export default function CertificateDesigner() {
   const [linked, setLinked] = useState(false);
 
   useEffect(() => {
-    if (classId)
+    if (classId && user)
       getDoc(doc(db, "classes", classId)).then((s) =>
         setClassName(s.exists() ? s.data()?.name ?? "Class" : "Class")
       );
-  }, [classId]);
+  }, [classId, user]);
 
   useEffect(() => {
     if (template) {
@@ -39,11 +39,11 @@ export default function CertificateDesigner() {
   }, [template]);
 
   useEffect(() => {
-    if (!classId) return;
+    if (!classId || !user) return;
     getDoc(doc(db, "classes", classId)).then((s) => {
       if (s.exists()) setLinked(!!s.data()?.certificateTemplateId);
     });
-  }, [classId, template]);
+  }, [classId, template, user]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

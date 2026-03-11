@@ -36,6 +36,11 @@ const classNavTabs: { id: string; label: string }[] = [
   { id: "assignments", label: "Assignments" },
   { id: "documents", label: "Documents" },
   { id: "quizzes", label: "Quizzes" },
+  { id: "live", label: "Live" },
+  { id: "roster", label: "Roster" },
+  { id: "reports", label: "Reports" },
+  { id: "playlists", label: "Playlists" },
+  { id: "community", label: "Community" },
 ];
 
 interface SidebarNavProps {

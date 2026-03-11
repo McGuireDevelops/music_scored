@@ -45,8 +45,8 @@ service cloud.firestore {
     // (NDA, end-user agreement, etc.). Enrollment doc id must be userId for this check.
     function hasFulfilledMandatoryRequirements(classId) {
       let classDoc = get(/databases/$(database)/documents/classes/$(classId));
-      let mandatoryIds = classDoc.data != null ? classDoc.data.get('mandatoryRequirementIds', null) : null;
-      return mandatoryIds == null || mandatoryIds.size() == 0
+      let mandatoryIds = classDoc.exists && classDoc.data != null ? classDoc.data.get('mandatoryRequirementIds', []) : [];
+      return mandatoryIds.size() == 0
         || (exists(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid))
             && get(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid)).data.get('status', 'enrolled') == 'enrolled');
     }
@@ -132,7 +132,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         isClassTeacher(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow write: if isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid;
+      allow write: if (isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid)
+        || (isAdmin() && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId)));
     }
 
     // Lesson placements (attach/clone across modules)

@@ -45,6 +45,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="profile/:profileId" element={<TeacherProfilePage />} />
               <Route path="signin" element={<SignIn />} />
               <Route path="student" element={<StudentDashboard />} />
+              <Route path="student/todo" element={<StudentTodoPage />} />
               <Route path="student/class/:id" element={<ClassDetail />} />
               <Route path="student/class/:classId/assignment/:assignmentId" element={<AssignmentDetail />} />
               <Route path="student/class/:classId/quiz/:quizId" element={<QuizPlayer />} />

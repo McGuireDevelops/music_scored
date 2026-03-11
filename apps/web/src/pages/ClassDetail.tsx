@@ -1,4 +1,4 @@
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, useLocation, Link, useSearchParams } from "react-router-dom";
 import { useState, useRef } from "react";
 import { useEffect } from "react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
@@ -41,11 +41,21 @@ import type { LessonWithId } from "../hooks/useModuleLessons";
 import { ClassReportsTab } from "../components/reports/ClassReportsTab";
 import { PlaylistManager } from "../components/playlists/PlaylistManager";
 
+const VALID_TABS = [
+  "curriculum", "course", "modules", "lessons", "assignments", "documents", "quizzes",
+  "roster", "reports", "playlists", "community", "portfolio",
+] as const;
+type Tab = (typeof VALID_TABS)[number];
+
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user } = useAuth();
   const isTeacherRoute = pathname.startsWith("/teacher");
+  const tabParam = searchParams.get("tab");
+  const activeTab: Tab =
+    tabParam && VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "curriculum";
   const [className, setClassName] = useState<string | null>(null);
   const [classDescription, setClassDescription] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -99,6 +109,11 @@ export default function ClassDetail() {
     setStatus: setPlaylistStatus,
     removeFromDoList: removePlaylistFromDo,
   } = usePlaylistProgress(user?.uid);
+
+  useEffect(() => {
+    if (!id) return;
+    if (!searchParams.get("tab")) setSearchParams({ tab: "curriculum" }, { replace: true });
+  }, [id, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!id) return;
@@ -159,14 +174,135 @@ export default function ClassDetail() {
               )}
             </div>
             <div className="mt-6">
-              <CurriculumOverviewTab
-                className={className ?? ""}
-                modulesCount={modules.length}
-                lessonsCount={allLessons.length}
-                assignmentsCount={assignments.length}
-                quizzesCount={quizzes.length}
-                loading={modulesLoading || allLessonsLoading}
-              />
+              {activeTab === "curriculum" && (
+                <CurriculumOverviewTab
+                  className={className ?? ""}
+                  modulesCount={modules.length}
+                  lessonsCount={allLessons.length}
+                  assignmentsCount={assignments.length}
+                  quizzesCount={quizzes.length}
+                  loading={modulesLoading || allLessonsLoading}
+                />
+              )}
+              {activeTab === "course" && (
+                <CourseTab
+                  className={className ?? ""}
+                  classDescription={classDescription}
+                />
+              )}
+              {activeTab === "modules" && (
+                <ModulesTab
+                  isTeacher={isTeacherRoute}
+                  modules={modules}
+                  modulesLoading={modulesLoading}
+                  modulesError={modulesError}
+                  selectedModule={selectedModule}
+                  setSelectedModule={setSelectedModule}
+                  createModule={createModule}
+                  updateModule={updateModule}
+                  deleteModule={deleteModule}
+                  classId={id!}
+                  userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "lessons" && (
+                <LessonsTab
+                  isTeacher={isTeacherRoute}
+                  modules={modules}
+                  allLessons={allLessons}
+                  loading={allLessonsLoading}
+                  moduleForNewLesson={moduleForNewLesson}
+                  setModuleForNewLesson={setModuleForNewLesson}
+                  createLesson={createLessonInModule}
+                  updateLesson={updateLessonInModule}
+                  refetchLessons={refetchClassLessons}
+                  classId={id!}
+                  userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "assignments" && (
+                <AssignmentsTab
+                  assignments={assignments}
+                  loading={assignmentsLoading}
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                  createAssignment={createAssignment}
+                  userId={user?.uid ?? ""}
+                  modules={modules}
+                />
+              )}
+              {activeTab === "documents" && (
+                <DocumentsTab
+                  modules={modules}
+                  lessons={allLessons}
+                  loading={allLessonsLoading}
+                  isTeacher={isTeacherRoute}
+                  updateModule={updateModule}
+                  classId={id!}
+                />
+              )}
+              {activeTab === "quizzes" && (
+                <QuizzesTab
+                  quizzes={quizzes}
+                  loading={quizzesLoading}
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                />
+              )}
+              {activeTab === "reports" && isTeacherRoute && (
+                <ClassReportsTab classId={id!} />
+              )}
+              {activeTab === "playlists" && (
+                <PlaylistManager
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                  ownerId={user?.uid ?? ""}
+                  progressHandlers={
+                    !isTeacherRoute && user?.uid
+                      ? {
+                          getStatus: getPlaylistStatus,
+                          addToDoList: addPlaylistToDo,
+                          setStatus: setPlaylistStatus,
+                          removeFromDoList: removePlaylistFromDo,
+                        }
+                      : undefined
+                  }
+                />
+              )}
+              {activeTab === "roster" && isTeacherRoute && (
+                <RosterTab
+                  cohorts={cohorts}
+                  enrollments={enrollments}
+                  cohortsLoading={cohortsLoading}
+                  enrollmentsLoading={enrollmentsLoading}
+                  createCohort={createCohort}
+                  deleteCohort={deleteCohort}
+                  addEnrollment={addEnrollment}
+                  removeEnrollment={removeEnrollment}
+                  issueCertification={issueCertification}
+                  classId={id!}
+                />
+              )}
+              {activeTab === "community" && (
+                <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+                  <Link
+                    to={`/${isTeacherRoute ? "teacher" : "student"}/class/${id}/community`}
+                    className="font-medium text-primary no-underline hover:underline"
+                  >
+                    View discussions →
+                  </Link>
+                </div>
+              )}
+              {activeTab === "portfolio" && !isTeacherRoute && (
+                <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+                  <Link
+                    to="/student/portfolio"
+                    className="font-medium text-primary no-underline hover:underline"
+                  >
+                    Manage portfolio →
+                  </Link>
+                </div>
+              )}
             </div>
           </>
         )}

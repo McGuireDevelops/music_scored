@@ -17,6 +17,9 @@ import {
 } from "./stripe/checkout";
 import { getStripeConnectOnboardingLink } from "./stripe/connect";
 import { submitQuizAttempt } from "./quiz/submitAttempt";
+import { listUsers } from "./admin/listUsers";
+import { updateUserRole } from "./admin/updateUserRole";
+import { getTeacherSettings, updateTeacherSettings } from "./admin/getTeacherSettings";
 
 setGlobalOptions({ maxInstances: 10 });
 
@@ -31,4 +34,8 @@ export {
   stripeWebhook,
   getStripeConnectOnboardingLink,
   submitQuizAttempt,
+  listUsers,
+  updateUserRole,
+  getTeacherSettings,
+  updateTeacherSettings,
 };

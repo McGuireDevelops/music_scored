@@ -12,7 +12,15 @@ import { checkRateLimit } from "../utils/rateLimit";
 import { validateInput } from "../validation";
 import { createCheckoutSessionSchema } from "../validation/schemas";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY not set");
+    _stripe = new Stripe(key);
+  }
+  return _stripe;
+}
 
 const GRANT_DURATION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 
@@ -87,6 +95,7 @@ export const createCheckoutSession = onCall(
       },
     };
 
+    const stripe = getStripe();
     const session = stripeAccount
       ? await stripe.checkout.sessions.create(sessionOptions, {
           stripeAccount,
@@ -121,7 +130,7 @@ export const stripeWebhook = onRequest(async (req, res) => {
       res.status(400).send("Raw body required for signature verification");
       return;
     }
-    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+    event = getStripe().webhooks.constructEvent(rawBody, sig, secret);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(400).send(`Webhook signature verification failed: ${message}`);

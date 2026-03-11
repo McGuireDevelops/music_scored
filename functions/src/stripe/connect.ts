@@ -7,7 +7,11 @@ import * as admin from "firebase-admin";
 import Stripe from "stripe";
 import { getSafeOrigin } from "../utils/origin";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY not set");
+  return new Stripe(key);
+}
 
 /**
  * Callable: getStripeConnectOnboardingLink
@@ -50,7 +54,7 @@ export const getStripeConnectOnboardingLink = onCall(
     let accountId = existingAccountId;
 
     if (!accountId) {
-      const account = await stripe.accounts.create({
+      const account = await getStripe().accounts.create({
         type: "express",
         country: "US",
         capabilities: {
@@ -74,7 +78,7 @@ export const getStripeConnectOnboardingLink = onCall(
     const origin = getSafeOrigin(
       request.rawRequest.headers.origin as string | undefined
     );
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await getStripe().accountLinks.create({
       account: accountId,
       refresh_url: `${origin}/teacher/settings?stripe=refresh`,
       return_url: `${origin}/teacher/settings?stripe=success`,

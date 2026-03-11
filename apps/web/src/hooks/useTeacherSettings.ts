@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { functions, httpsCallable } from "../firebase";
 import { getPermissionErrorMessage, isFirebasePermissionError } from "../utils/firebaseErrors";
 import type { TeacherSettings, TeacherFeatureFlags } from "@learning-scores/shared";
 
@@ -33,24 +32,17 @@ export function useTeacherSettings(uid: string | undefined) {
       return;
     }
     setPermissionError(null);
-    getDoc(doc(db, "teacherSettings", uid))
-      .then((snap) => {
-        if (snap.exists()) {
-          const d = snap.data();
-          setSettings({
-            userId: d.userId ?? uid,
-            features: mergeWithDefaults(d.features),
-            stripeConnectAccountId: d.stripeConnectAccountId,
-            stripeOnboardingComplete: d.stripeOnboardingComplete ?? false,
-            updatedAt: d.updatedAt ?? Date.now(),
-          });
-        } else {
-          setSettings({
-            userId: uid,
-            features: { ...DEFAULT_FEATURES },
-            updatedAt: Date.now(),
-          });
-        }
+    const getSettings = httpsCallable<unknown, TeacherSettings>(functions, "getTeacherSettings");
+    getSettings({})
+      .then((res) => {
+        const data = res.data as TeacherSettings;
+        setSettings({
+          userId: data.userId ?? uid,
+          features: mergeWithDefaults(data.features),
+          stripeConnectAccountId: data.stripeConnectAccountId,
+          stripeOnboardingComplete: data.stripeOnboardingComplete ?? false,
+          updatedAt: data.updatedAt ?? Date.now(),
+        });
       })
       .catch((err) => {
         setSettings({
@@ -64,6 +56,11 @@ export function useTeacherSettings(uid: string | undefined) {
       })
       .finally(() => setLoading(false));
   }, [uid]);
+
+  const updateTeacherSettingsFn = httpsCallable<
+    Record<string, unknown>,
+    { success: boolean }
+  >(functions, "updateTeacherSettings");
 
   const updateFeatures = useCallback(
     async (features: Partial<TeacherFeatureFlags>) => {
@@ -79,7 +76,7 @@ export function useTeacherSettings(uid: string | undefined) {
         stripeOnboardingComplete: settings?.stripeOnboardingComplete,
         updatedAt: Date.now(),
       };
-      await setDoc(doc(db, "teacherSettings", uid), payload, { merge: true });
+      await updateTeacherSettingsFn(payload);
       setSettings((prev) =>
         prev ? { ...prev, ...payload } : { ...payload, userId: uid }
       );
@@ -96,7 +93,7 @@ export function useTeacherSettings(uid: string | undefined) {
         ...updates,
         updatedAt: Date.now(),
       };
-      await setDoc(doc(db, "teacherSettings", uid), payload, { merge: true });
+      await updateTeacherSettingsFn(payload);
       setSettings((prev) => (prev ? { ...prev, ...payload } : payload));
     },
     [uid, settings]
@@ -104,23 +101,16 @@ export function useTeacherSettings(uid: string | undefined) {
 
   const refetch = useCallback(async () => {
     if (!uid) return;
-    const snap = await getDoc(doc(db, "teacherSettings", uid));
-    if (snap.exists()) {
-      const d = snap.data();
-      setSettings({
-        userId: d.userId ?? uid,
-        features: mergeWithDefaults(d.features),
-        stripeConnectAccountId: d.stripeConnectAccountId,
-        stripeOnboardingComplete: d.stripeOnboardingComplete ?? false,
-        updatedAt: d.updatedAt ?? Date.now(),
-      });
-    } else {
-      setSettings({
-        userId: uid,
-        features: { ...DEFAULT_FEATURES },
-        updatedAt: Date.now(),
-      });
-    }
+    const getSettings = httpsCallable<unknown, TeacherSettings>(functions, "getTeacherSettings");
+    const res = await getSettings({});
+    const data = res.data as TeacherSettings;
+    setSettings({
+      userId: data.userId ?? uid,
+      features: mergeWithDefaults(data.features),
+      stripeConnectAccountId: data.stripeConnectAccountId,
+      stripeOnboardingComplete: data.stripeOnboardingComplete ?? false,
+      updatedAt: data.updatedAt ?? Date.now(),
+    });
   }, [uid]);
 
   const features = settings ? mergeWithDefaults(settings.features) : DEFAULT_FEATURES;

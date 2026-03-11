@@ -55,9 +55,9 @@ service cloud.firestore {
       return isStudent() && hasValidAccessGrant(classId) && hasFulfilledMandatoryRequirements(classId);
     }
 
-    // Users: own doc only; admin can read all and update role
+    // Users: own doc; admin read/update all; teachers can read (for roster/student list)
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isTeacher());
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
       allow delete: if request.auth != null && request.auth.uid == userId;

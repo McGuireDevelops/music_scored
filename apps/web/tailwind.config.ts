@@ -17,14 +17,14 @@ const config: Config = {
       },
       colors: {
         sidebar: {
-          DEFAULT: "#1D0D37",
-          hover: "#2A1247",
-          active: "#3D1E5C",
+          DEFAULT: "var(--color-sidebar, #1D0D37)",
+          hover: "var(--color-sidebar-hover, #2A1247)",
+          active: "var(--color-sidebar-active, #3D1E5C)",
         },
         primary: {
-          DEFAULT: "#6366F1",
-          light: "#818CF8",
-          dark: "#4F46E5",
+          DEFAULT: "var(--color-primary, #6366F1)",
+          light: "var(--color-primary-light, #818CF8)",
+          dark: "var(--color-primary-dark, #4F46E5)",
         },
         surface: {
           light: "#F8F9FA",

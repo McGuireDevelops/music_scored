@@ -43,5 +43,13 @@ service firebase.storage {
       allow write: if request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['teacher', 'admin']
         && request.resource.size < 50 * 1024 * 1024;
     }
+
+    // Tenant branding (logo, favicon): teacher write own; public read for white-label display
+    match /tenants/{teacherId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == teacherId
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['teacher', 'admin']
+        && request.resource.size < 2 * 1024 * 1024;
+    }
   }
 }

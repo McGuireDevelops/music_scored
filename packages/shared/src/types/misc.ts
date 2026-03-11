@@ -64,6 +64,12 @@ export interface TeacherProfile {
   bio?: string;
   headline?: string;
   publicClasses?: string[];
+  /** White-label branding */
+  logoUrl?: string;
+  faviconUrl?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  tenantName?: string;
   createdAt: number;
   updatedAt: number;
 }

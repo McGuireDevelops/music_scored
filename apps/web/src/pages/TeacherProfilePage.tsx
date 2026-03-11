@@ -2,13 +2,17 @@ import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { useTenant } from "../contexts/TenantContext";
 
 export default function TeacherProfilePage() {
   const { profileId } = useParams<{ profileId: string }>();
+  const { branding } = useTenant();
   const [profile, setProfile] = useState<{
     displayName?: string;
     bio?: string;
     headline?: string;
+    logoUrl?: string;
+    tenantName?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,9 +31,29 @@ export default function TeacherProfilePage() {
 
   return (
     <div>
-      <h1>{profile.displayName ?? "Teacher"}</h1>
-      {profile.headline && <p style={{ fontSize: "1.2rem", color: "#666" }}>{profile.headline}</p>}
-      {profile.bio && <p style={{ whiteSpace: "pre-wrap" }}>{profile.bio}</p>}
+      <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        {(profile.logoUrl ?? branding.logoUrl) && (
+          <img
+            src={profile.logoUrl ?? branding.logoUrl}
+            alt=""
+            className="h-16 w-auto object-contain"
+          />
+        )}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            {profile.displayName ?? "Teacher"}
+          </h1>
+          {(profile.tenantName ?? branding.tenantName) && (
+            <p className="text-sm text-gray-500">
+              {profile.tenantName ?? branding.tenantName}
+            </p>
+          )}
+        </div>
+      </div>
+      {profile.headline && (
+        <p className="mb-4 text-lg text-gray-600">{profile.headline}</p>
+      )}
+      {profile.bio && <p className="whitespace-pre-wrap text-gray-700">{profile.bio}</p>}
     </div>
   );
 }

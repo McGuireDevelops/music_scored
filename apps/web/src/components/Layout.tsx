@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { TenantProvider } from "../contexts/TenantContext";
+import { TenantTheme } from "./TenantTheme";
 import { SidebarNav } from "./dashboard/SidebarNav";
 import LoginLayout from "./LoginLayout";
 
@@ -16,17 +18,17 @@ export default function Layout() {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  // Branded login layout for sign-in page or logged-out users (no nav/search)
-  if (isSignInPage || (isLoggedOut && location.pathname === "/")) {
-    return (
-      <LoginLayout>
-        <Outlet />
-      </LoginLayout>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-surface-light">
+    <TenantProvider>
+      {isSignInPage || (isLoggedOut && location.pathname === "/") ? (
+        <TenantTheme>
+          <LoginLayout>
+            <Outlet />
+          </LoginLayout>
+        </TenantTheme>
+      ) : (
+        <TenantTheme>
+          <div className="min-h-screen bg-surface-light">
       <SidebarNav open={sidebarOpen} />
       <div className="pl-0 lg:pl-60">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200/80 bg-white/80 px-6 backdrop-blur-sm">
@@ -66,6 +68,9 @@ export default function Layout() {
           aria-label="Close sidebar overlay"
         />
       )}
-    </div>
+          </div>
+        </TenantTheme>
+      )}
+    </TenantProvider>
   );
 }

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTenant } from "../../contexts/TenantContext";
 import { useTeacherSettings } from "../../hooks/useTeacherSettings";
 import type { TeacherFeatureFlags } from "@learning-scores/shared";
 
@@ -33,6 +34,7 @@ interface SidebarNavProps {
 export function SidebarNav({ open = false }: SidebarNavProps) {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
+  const { branding } = useTenant();
   const { features } = useTeacherSettings(profile?.role === "teacher" || profile?.role === "admin" ? user?.uid : undefined);
 
   const visibleItems = navItems.filter((item) => {
@@ -51,9 +53,12 @@ export function SidebarNav({ open = false }: SidebarNavProps) {
     >
       <Link
         to="/"
-        className="px-5 py-5 text-lg font-semibold text-white no-underline transition-colors hover:text-white"
+        className="flex items-center gap-3 px-5 py-5 text-lg font-semibold text-white no-underline transition-colors hover:text-white"
       >
-        Learning Scores
+        {branding.logoUrl ? (
+          <img src={branding.logoUrl} alt="" className="h-8 w-auto object-contain" />
+        ) : null}
+        {branding.tenantName ?? "Learning Scores"}
       </Link>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
         {visibleItems.map((item) => (

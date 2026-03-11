@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
@@ -10,9 +11,14 @@ export default function TeacherProfileEdit() {
   const [displayName, setDisplayName] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
+  const [tenantName, setTenantName] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#6366F1");
+  const [accentColor, setAccentColor] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -22,6 +28,10 @@ export default function TeacherProfileEdit() {
         setDisplayName(d.displayName ?? "");
         setHeadline(d.headline ?? "");
         setBio(d.bio ?? "");
+        setTenantName(d.tenantName ?? "");
+        setLogoUrl(d.logoUrl ?? "");
+        setPrimaryColor(d.primaryColor ?? "#6366F1");
+        setAccentColor(d.accentColor ?? "");
       } else {
         setDisplayName(user.displayName ?? "");
       }
@@ -42,6 +52,10 @@ export default function TeacherProfileEdit() {
           displayName: displayName.trim() || null,
           headline: headline.trim() || null,
           bio: bio.trim() || null,
+          tenantName: tenantName.trim() || null,
+          logoUrl: logoUrl.trim() || null,
+          primaryColor: primaryColor.trim() || null,
+          accentColor: accentColor.trim() || null,
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -50,6 +64,27 @@ export default function TeacherProfileEdit() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const allowed = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+    if (!allowed.includes(ext)) {
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const path = `tenants/${user.uid}/logo.${ext}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setLogoUrl(url);
+    } finally {
+      setLogoUploading(false);
+    }
+    e.target.value = "";
   };
 
   if (loading) return <p className="text-gray-500">Loading…</p>;
@@ -126,6 +161,119 @@ export default function TeacherProfileEdit() {
               rows={5}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
+          </div>
+          <h3 className="mb-4 border-t border-gray-200 pt-6 text-lg font-medium text-gray-900">
+            Branding
+          </h3>
+          <p className="mb-4 text-sm text-gray-600">
+            Customize how your courses appear to students (logo, colors, name).
+          </p>
+          <div className="mb-4">
+            <label
+              htmlFor="tenantName"
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
+              Tenant / school name
+            </label>
+            <input
+              id="tenantName"
+              type="text"
+              value={tenantName}
+              onChange={(e) => setTenantName(e.target.value)}
+              placeholder="e.g. Acme Music School"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Shown in sidebar and header. Falls back to &quot;Learning Scores&quot; if empty.
+            </p>
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="logoUrl"
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
+              Logo
+            </label>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-2">
+                <input
+                  id="logoFile"
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                  onChange={handleLogoUpload}
+                  disabled={logoUploading}
+                  className="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-white file:hover:bg-primary-dark"
+                />
+                {logoUploading && (
+                  <span className="text-sm text-gray-500">Uploading…</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <input
+                  id="logoUrl"
+                  type="url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="Or paste logo URL"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            {logoUrl && (
+              <div className="mt-2">
+                <img src={logoUrl} alt="Logo preview" className="h-12 w-auto object-contain" />
+              </div>
+            )}
+          </div>
+          <div className="mb-4 flex flex-wrap gap-6">
+            <div>
+              <label
+                htmlFor="primaryColor"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Primary color
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="primaryColor"
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-gray-300"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  placeholder="#6366F1"
+                  className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div>
+              <label
+                htmlFor="accentColor"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Accent color
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="accentColor"
+                  type="color"
+                  value={accentColor || "#818CF8"}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-gray-300"
+                />
+                <input
+                  type="text"
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  placeholder="#818CF8 (optional)"
+                  className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button

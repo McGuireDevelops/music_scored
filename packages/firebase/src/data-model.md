@@ -34,7 +34,7 @@
 | `playlists` | classId, moduleId?, ownerId, type, name, description?, order | Per-class: reading/watch/game/music |
 | `playlists/{id}/items` | title, subtype?, author?, link?, notes?, requirement, order | mandatory or recommended |
 | `users/{uid}/playlistItemProgress` | playlistId, playlistItemId, classId, status, addedToDoAt?, updatedAt | Student todo/in_progress/done |
-| `teacherProfiles` | userId, displayName?, bio?, headline? | Public marketing |
+| `teacherProfiles` | userId, displayName?, bio?, headline?, logoUrl?, faviconUrl?, primaryColor?, accentColor?, tenantName? | Public marketing; white-label branding |
 
 ## Storage Layout
 
@@ -42,6 +42,7 @@
 - `analysisSnapshots/` – AI analysis outputs (teacher-only)
 - `classes/{classId}/` – Lesson media, DAW templates, example sessions
 - `users/{userId}/feedback/` – Voice/video feedback uploads
+- `tenants/{teacherId}/` – White-label branding (logo, favicon); teacher write, public read
 
 ## Access Model
 

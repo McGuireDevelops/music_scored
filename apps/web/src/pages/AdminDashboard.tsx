@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { getPermissionErrorMessage } from "../utils/firebaseErrors";
+import { useAuth } from "../contexts/AuthContext";
 
 interface UserDoc {
   id: string;
@@ -12,6 +13,7 @@ interface UserDoc {
 }
 
 export default function AdminDashboard() {
+  const { profile } = useAuth();
   const [users, setUsers] = useState<UserDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +22,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetch() {
       try {
+        const uid = auth.currentUser?.uid;
+        console.log(
+          "[Admin debug] UID:",
+          uid,
+          "| Profile role:",
+          profile?.role ?? "(none)",
+          "| Firestore doc path: users/" + (uid ?? "(none)")
+        );
         const snap = await getDocs(collection(db, "users"));
         const list: UserDoc[] = snap.docs.map((d) => {
           const data = d.data();
@@ -32,6 +42,7 @@ export default function AdminDashboard() {
         });
         setUsers(list);
       } catch (err) {
+        console.error("[Admin debug] getDocs(users) failed:", err);
         setError(getPermissionErrorMessage(err, "Failed to load users"));
       } finally {
         setLoading(false);

@@ -8,6 +8,7 @@ const navItems: { to: string; label: string; roles?: string[] }[] = [
   { to: "/teacher/profile", label: "My profile", roles: ["teacher", "admin"] },
   { to: "/admin", label: "Admin", roles: ["admin"] },
   { to: "/student/portfolio", label: "Library", roles: ["student", "admin"] },
+  { to: "/student/todo", label: "To-do", roles: ["student", "admin"] },
   { to: "/student/certifications", label: "Certifications", roles: ["student", "admin"] },
   { to: "#", label: "Calendar" },
   { to: "#", label: "Help" },

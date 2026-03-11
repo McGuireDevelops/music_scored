@@ -3,6 +3,7 @@
  */
 
 import type { MediaReference } from "../media-reference.js";
+import type { CompletionCriteria } from "./certificate.js";
 
 export type ModuleReleaseMode = "time-released" | "mastery-based";
 
@@ -14,6 +15,8 @@ export interface Class {
   isPublic?: boolean;
   isPaid?: boolean;
   createdAt?: number;
+  certificateTemplateId?: string;
+  completionCriteria?: CompletionCriteria;
 }
 
 export interface Cohort {

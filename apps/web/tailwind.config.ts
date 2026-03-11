@@ -30,6 +30,13 @@ const config: Config = {
           light: "#F8F9FA",
           card: "#FFFFFF",
         },
+        report: {
+          success: "#22C55E",
+          warning: "#F59E0B",
+          error: "#EF4444",
+          info: "#3B82F6",
+          pending: "#64748B",
+        },
       },
       borderRadius: {
         card: "0.5rem",

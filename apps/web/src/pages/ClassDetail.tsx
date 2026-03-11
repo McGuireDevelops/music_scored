@@ -12,6 +12,7 @@ import { useClassLiveLessons } from "../hooks/useLiveLessons";
 import { useClassCohorts } from "../hooks/useCohorts";
 import { useClassEnrollments } from "../hooks/useEnrollments";
 import { useIssueCertification } from "../hooks/useCertifications";
+import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { LessonViewer } from "../components/LessonViewer";
 import { TabBar } from "../components/dashboard/TabBar";
 import { ModuleNav } from "../components/dashboard/ModuleNav";
@@ -19,8 +20,10 @@ import { ContentPane } from "../components/dashboard/ContentPane";
 import { formatUtcForDisplay } from "../utils/timezone";
 import type { ModuleWithId } from "../hooks/useClassModules";
 import type { LessonWithId } from "../hooks/useModuleLessons";
+import { ClassReportsTab } from "../components/reports/ClassReportsTab";
+import { PlaylistManager } from "../components/playlists/PlaylistManager";
 
-type Tab = "curriculum" | "assignments" | "quizzes" | "live" | "roster" | "community" | "portfolio";
+type Tab = "curriculum" | "assignments" | "quizzes" | "live" | "roster" | "reports" | "playlists" | "community" | "portfolio";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "curriculum", label: "Modules" },
@@ -28,6 +31,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "quizzes", label: "Quizzes" },
   { id: "live", label: "Live" },
   { id: "roster", label: "Roster" },
+  { id: "reports", label: "Reports" },
+  { id: "playlists", label: "Playlists" },
   { id: "community", label: "Community" },
   { id: "portfolio", label: "Portfolio" },
 ];
@@ -114,18 +119,26 @@ export default function ClassDetail() {
                 {className}
               </h1>
               {isTeacherRoute && (
-                <Link
-                  to={`/teacher/class/${id}/rubrics`}
-                  className="text-sm font-medium text-primary no-underline hover:underline"
-                >
-                  Manage rubrics
-                </Link>
+                <div className="flex gap-4">
+                  <Link
+                    to={`/teacher/class/${id}/rubrics`}
+                    className="text-sm font-medium text-primary no-underline hover:underline"
+                  >
+                    Manage rubrics
+                  </Link>
+                  <Link
+                    to={`/teacher/class/${id}/certificate`}
+                    className="text-sm font-medium text-primary no-underline hover:underline"
+                  >
+                    Certificate
+                  </Link>
+                </div>
               )}
             </div>
             <TabBar
               tabs={TABS.filter((t) => {
                 if (t.id === "portfolio") return !isTeacherRoute;
-                if (t.id === "roster") return isTeacherRoute;
+                if (t.id === "roster" || t.id === "reports") return isTeacherRoute;
                 return true;
               })}
               activeTab={activeTab}
@@ -178,6 +191,26 @@ export default function ClassDetail() {
                   deleteLiveLesson={deleteLiveLesson}
                   classId={id!}
                   userId={user?.uid ?? ""}
+                />
+              )}
+              {activeTab === "reports" && isTeacherRoute && (
+                <ClassReportsTab classId={id!} />
+              )}
+              {activeTab === "playlists" && (
+                <PlaylistManager
+                  classId={id!}
+                  isTeacher={isTeacherRoute}
+                  ownerId={user?.uid ?? ""}
+                  progressHandlers={
+                    !isTeacherRoute && user?.uid
+                      ? {
+                          getStatus: getPlaylistStatus,
+                          addToDoList: addPlaylistToDo,
+                          setStatus: setPlaylistStatus,
+                          removeFromDoList: removePlaylistFromDo,
+                        }
+                      : undefined
+                  }
                 />
               )}
               {activeTab === "roster" && isTeacherRoute && (
@@ -285,7 +318,7 @@ function CurriculumTab({
   };
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
+    <div className="flex min-w-0 w-full flex-col gap-6 overflow-hidden lg:flex-row lg:gap-8">
       <ModuleNav
         modules={modules}
         loading={modulesLoading}
@@ -576,7 +609,12 @@ function RosterTab({
               key={e.id}
               className="flex items-center justify-between rounded-lg border p-3"
             >
-              <span className="text-gray-600">{e.userId}</span>
+              <Link
+                to={`/teacher/class/${classId}/student/${e.userId}`}
+                className="font-medium text-primary no-underline hover:underline"
+              >
+                {e.userId}
+              </Link>
               <div className="flex items-center gap-2">
                 {e.cohortId && (
                   <span className="text-sm text-gray-500">

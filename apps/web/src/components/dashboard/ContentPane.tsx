@@ -6,7 +6,7 @@ interface ContentPaneProps {
 
 export function ContentPane({ breadcrumb, title, children }: ContentPaneProps) {
   return (
-    <div className="min-w-0 flex-1">
+    <div className="min-w-0 flex-1 overflow-hidden">
       {breadcrumb && (
         <span className="mb-3 inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
           {breadcrumb}
@@ -17,7 +17,7 @@ export function ContentPane({ breadcrumb, title, children }: ContentPaneProps) {
           {title}
         </h2>
       )}
-      <div className="rounded-card border border-gray-200 bg-white p-6 shadow-card">
+      <div className="rounded-card min-h-0 overflow-auto border border-gray-200 bg-white p-6 shadow-card">
         {children}
       </div>
     </div>

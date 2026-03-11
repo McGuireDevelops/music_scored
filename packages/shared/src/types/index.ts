@@ -4,3 +4,5 @@ export * from "./assignments.js";
 export * from "./feedback.js";
 export * from "./quiz.js";
 export * from "./misc.js";
+export * from "./playlist.js";
+export * from "./certificate.js";

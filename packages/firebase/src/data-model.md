@@ -7,7 +7,7 @@
 | `users` | uid, email, displayName, role (student/teacher/admin) | One doc per user |
 | `accessGrants` | userId, type, scope, validFrom, validTo, paymentRef? | Top-level for listing |
 | `users/{uid}/accessGrants/{classId}` | validFrom, validTo | Per-class grant; Cloud Functions only write |
-| `classes` | teacherId, name, description, isPublic?, isPaid? | Teacher-owned |
+| `classes` | teacherId, name, description, isPublic?, isPaid?, certificateTemplateId?, completionCriteria? | Teacher-owned |
 | `classes/{id}/cohorts` | name, limit? | Subcollection |
 | `classes/{id}/enrollments` | userId, cohortId?, status | Subcollection; enrollmentId = userId |
 | `curricula` | classId | Linked to class |
@@ -27,6 +27,11 @@
 | `communities/{id}/threads` | authorId, type, title, content, isAnonymous? | critique/discussion/reference/announcement |
 | `portfolioItems` | userId, classId, submissionIds[], feedbackIds? | Student-controlled |
 | `certifications` | userId, issuedBy, classId, criteriaMet[], issuedAt, revokedAt? | Teacher-issued |
+| `certificateTemplates` | classId, ownerId, name, layout, placeholders[], createdAt, updatedAt | Teacher-created; used for auto-issue |
+| `classCompletions` | userId, classId, completedAt, criteriaMet[], certificateId? | Student completion tracking |
+| `playlists` | classId, moduleId?, ownerId, type, name, description?, order | Per-class: reading/watch/game/music |
+| `playlists/{id}/items` | title, subtype?, author?, link?, notes?, requirement, order | mandatory or recommended |
+| `users/{uid}/playlistItemProgress` | playlistId, playlistItemId, classId, status, addedToDoAt?, updatedAt | Student todo/in_progress/done |
 | `teacherProfiles` | userId, displayName?, bio?, headline? | Public marketing |
 
 ## Storage Layout

@@ -15,6 +15,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useSubmissionFeedback, useCreateFeedback } from "../hooks/useFeedback";
 import { useRubrics } from "../hooks/useRubrics";
+import { AssignmentReportSection } from "../components/reports/AssignmentReportSection";
 import type { Assignment, Submission, Rubric, FeedbackCriterionResult } from "@learning-scores/shared";
 import { formatUtcForDisplay } from "../utils/timezone";
 
@@ -128,6 +129,13 @@ export default function AssignmentDetail() {
           <p style={{ color: "#666" }}>
             Due: {formatUtcForDisplay(assignment.deadline)}
           </p>
+        )}
+
+        {isTeacher && classId && (
+          <AssignmentReportSection
+            classId={classId}
+            assignmentId={assignmentId!}
+          />
         )}
 
         {isTeacher && submissions.length > 0 && (

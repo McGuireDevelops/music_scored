@@ -20,6 +20,9 @@ export const COLLECTIONS = {
   certifications: "certifications",
   teacherProfiles: "teacherProfiles",
   enrollments: "enrollments",
+  playlists: "playlists",
+  certificateTemplates: "certificateTemplates",
+  classCompletions: "classCompletions",
 } as const;
 
 export const SUBCOLLECTIONS = {
@@ -33,6 +36,8 @@ export const SUBCOLLECTIONS = {
   threads: "threads",
   submissions: "submissions",
   editHistory: "editHistory",
+  items: "items",
+  playlistItemProgress: "playlistItemProgress",
 } as const;
 
 /** Path helper: users/{uid} */
@@ -83,4 +88,19 @@ export function threadPath(communityId: string, threadId: string): string {
 /** Path helper: rubrics/{rubricId}/editHistory/{editId} */
 export function rubricEditHistoryPath(rubricId: string, editId: string): string {
   return `${COLLECTIONS.rubrics}/${rubricId}/${SUBCOLLECTIONS.editHistory}/${editId}`;
+}
+
+/** Path helper: playlists/{playlistId} */
+export function playlistPath(playlistId: string): string {
+  return `${COLLECTIONS.playlists}/${playlistId}`;
+}
+
+/** Path helper: playlists/{playlistId}/items/{itemId} */
+export function playlistItemPath(playlistId: string, itemId: string): string {
+  return `${playlistPath(playlistId)}/${SUBCOLLECTIONS.items}/${itemId}`;
+}
+
+/** Path helper: users/{userId}/playlistItemProgress/{docId} */
+export function userPlaylistProgressPath(userId: string, docId: string): string {
+  return `${userPath(userId)}/${SUBCOLLECTIONS.playlistItemProgress}/${docId}`;
 }

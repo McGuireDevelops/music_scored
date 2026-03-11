@@ -78,7 +78,7 @@ export function ModuleNav({
   };
 
   return (
-    <div className="min-w-0 shrink-0 lg:w-64">
+    <div className="shrink-0 lg:w-64">
       <h3 className="mb-3 text-sm font-semibold text-gray-900">Modules</h3>
       {loading && <p className="text-sm text-gray-500">Loading…</p>}
       {!loading && modules.length === 0 && (

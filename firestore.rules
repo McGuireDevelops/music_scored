@@ -175,7 +175,12 @@ service cloud.firestore {
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
     }
 
-    // Feedback: teacher write; student read own
+    // Rubric edit history: teacher read/write when they own the rubric
+    match /rubrics/{rubricId}/editHistory/{editId} {
+      allow read, write: if isTeacher() && get(/databases/$(database)/documents/rubrics/$(rubricId)).data.ownerId == request.auth.uid;
+    }
+
+    // Feedback: linked to submissionId + assignmentId; teacher write; student read own
     match /feedback/{feedbackId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid

@@ -65,6 +65,7 @@ export default function ClassDetail() {
   const [activeTab, setActiveTab] = useState<Tab>("curriculum");
   const [selectedModule, setSelectedModule] = useState<ModuleWithId | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithId | null>(null);
+  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
 
   const {
     modules,
@@ -85,7 +86,7 @@ export default function ClassDetail() {
   } = useModuleLessonsWithAttached(id, selectedModule?.id);
 
   const { lessons: teacherLessons } = useTeacherLessons(
-    isTeacherRoute ? user?.uid : undefined
+    showAddExistingModal && isTeacherRoute ? user?.uid : undefined
   );
 
   const {
@@ -185,6 +186,8 @@ export default function ClassDetail() {
                   lessons={lessons}
                   allItems={allItems}
                   teacherLessons={teacherLessons}
+                  showAddExistingModal={showAddExistingModal}
+                  setShowAddExistingModal={setShowAddExistingModal}
                   modulesLoading={modulesLoading}
                   lessonsLoading={lessonsLoading}
                   modulesError={modulesError}
@@ -198,6 +201,8 @@ export default function ClassDetail() {
                   reorderLessons={reorderLessons}
                   attachLesson={attachLesson}
                   deleteModule={deleteModule}
+                  showAddExistingModal={showAddExistingModal}
+                  setShowAddExistingModal={setShowAddExistingModal}
                   classId={id!}
                   userId={user?.uid ?? ""}
                 />
@@ -312,6 +317,8 @@ function CurriculumTab({
   reorderLessons,
   attachLesson,
   deleteModule,
+  showAddExistingModal,
+  setShowAddExistingModal,
   classId,
   userId,
 }: {
@@ -320,6 +327,8 @@ function CurriculumTab({
   lessons: LessonWithId[];
   allItems: import("../hooks/useModuleLessonsWithAttached").ModuleLessonItem[];
   teacherLessons: import("../hooks/useTeacherLessons").TeacherLessonEnriched[];
+  showAddExistingModal: boolean;
+  setShowAddExistingModal: (show: boolean) => void;
   modulesLoading: boolean;
   lessonsLoading: boolean;
   modulesError: string | null;
@@ -337,7 +346,6 @@ function CurriculumTab({
   userId: string;
 }) {
   const [showLessonForm, setShowLessonForm] = useState<"create" | "edit" | null>(null);
-  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),

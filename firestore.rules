@@ -10,15 +10,18 @@ service cloud.firestore {
     function hasValidAccessGrant(classId) {
       let uid = request.auth.uid;
       let userDoc = get(/databases/$(database)/documents/users/$(uid));
-      let teacherOwns = userDoc.data.role == 'teacher' && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == uid;
-      let admin = userDoc.data.role == 'admin';
+      let role = userDoc.exists == true ? userDoc.data.get('role', null) : null;
+      let teacherOwns = role == 'teacher' && exists(/databases/$(database)/documents/classes/$(classId))
+        && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == uid;
+      let admin = role == 'admin';
       let grantPath = /databases/$(database)/documents/users/$(uid)/accessGrants/$(classId);
       let hasGrant = exists(grantPath) && get(grantPath).data.validFrom <= request.time.toMillis() && get(grantPath).data.validTo >= request.time.toMillis();
-      return request.auth != null && (teacherOwns || admin || (userDoc.data.role == 'student' && hasGrant));
+      return request.auth != null && (teacherOwns || admin || (role == 'student' && hasGrant));
     }
 
     function userRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.exists == true ? userDoc.data.get('role', null) : null;
     }
 
     function isTeacher() {
@@ -34,14 +37,15 @@ service cloud.firestore {
     }
 
     function isClassTeacher(classId) {
-      return isTeacher() && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+      return isTeacher() && exists(/databases/$(database)/documents/classes/$(classId))
+        && get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
     }
 
     // Student can access class content only if they have a valid grant AND have fulfilled mandatory entry requirements
     // (NDA, end-user agreement, etc.). Enrollment doc id must be userId for this check.
     function hasFulfilledMandatoryRequirements(classId) {
       let classDoc = get(/databases/$(database)/documents/classes/$(classId));
-      let mandatoryIds = classDoc.data.get('mandatoryRequirementIds', null);
+      let mandatoryIds = classDoc.data != null ? classDoc.data.get('mandatoryRequirementIds', null) : null;
       return mandatoryIds == null || mandatoryIds.size() == 0
         || (exists(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid))
             && get(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid)).data.get('status', 'enrolled') == 'enrolled');
@@ -152,7 +156,8 @@ service cloud.firestore {
       allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
 
       match /lessonVersions/{versionId} {
-        allow read, write: if isTeacher() && get(/databases/$(database)/documents/lessons/$(lessonId)).data.ownerId == request.auth.uid;
+        allow read, write: if isTeacher() && exists(/databases/$(database)/documents/lessons/$(lessonId))
+          && get(/databases/$(database)/documents/lessons/$(lessonId)).data.ownerId == request.auth.uid;
       }
     }
 

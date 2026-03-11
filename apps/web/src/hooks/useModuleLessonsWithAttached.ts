@@ -83,6 +83,7 @@ export function useModuleLessonsWithAttached(
         setAttachedItems(items);
       } catch (err) {
         console.error("Failed to fetch attached lessons:", err);
+        if (!cancelled) setAttachedItems([]);
       } finally {
         if (!cancelled) setAttachedLoading(false);
       }

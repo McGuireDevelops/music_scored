@@ -152,8 +152,10 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow write: if (isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid)
+      allow create, update: if (isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid)
         || (isAdmin() && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId)));
+      allow delete: if (isTeacher() && ownsClass(resource.data.classId))
+        || isAdmin();
     }
 
     // Lesson placements (attach/clone across modules)

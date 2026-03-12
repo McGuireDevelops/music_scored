@@ -56,6 +56,7 @@ export function CourseBuilder({
 
   const [newModuleName, setNewModuleName] = useState("");
   const [creatingModule, setCreatingModule] = useState(false);
+  const [moduleError, setModuleError] = useState("");
   const [editingCourse, setEditingCourse] = useState(false);
   const [editName, setEditName] = useState(courseName);
   const [editDescription, setEditDescription] = useState(classDescription ?? "");
@@ -131,9 +132,14 @@ export function CourseBuilder({
     e.preventDefault();
     if (!newModuleName.trim()) return;
     setCreatingModule(true);
+    setModuleError("");
     try {
       await createModule({ name: newModuleName.trim(), releaseMode: "time-released" });
       setNewModuleName("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create module";
+      setModuleError(msg);
+      console.error("Module create error:", err);
     } finally {
       setCreatingModule(false);
     }
@@ -452,6 +458,9 @@ export function CourseBuilder({
               {creatingModule ? "Adding..." : "+ Add module"}
             </button>
           </form>
+          {moduleError && (
+            <p className="mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{moduleError}</p>
+          )}
 
           {modules.length === 0 && !loading && (
             <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">

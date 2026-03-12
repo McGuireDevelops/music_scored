@@ -50,13 +50,14 @@ export function useClassModules(classId: string | undefined) {
     order?: number;
   }) => {
     if (!classId) throw new Error("No class selected");
-    const ref = await addDoc(collection(db, "modules"), {
+    const payload = {
       classId,
       name: data.name,
       releaseMode: data.releaseMode,
       releasedAt: data.releasedAt ?? null,
       order: data.order ?? modules.length,
-    });
+    };
+    const ref = await addDoc(collection(db, "modules"), payload);
     setModules((prev) => [
       ...prev,
       {

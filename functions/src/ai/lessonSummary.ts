@@ -57,51 +57,48 @@ Return only the summary text, no JSON or extra formatting.`;
  * Accepts lessonId (to fetch from Firestore) or title+content directly.
  * Returns { summary: string }. Does NOT write to Firestore.
  */
-export const generateLessonSummary = onCall(
-  { enforceAppCheck: false },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
+export const generateLessonSummary = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be signed in");
+  }
+  const uid = request.auth.uid;
+  await assertTeacher(uid);
+  await checkRateLimit("generateLessonSummary", uid);
+
+  const data = validateInput(
+    generateLessonSummarySchema,
+    request.data
+  ) as GenerateLessonSummaryInput;
+
+  let title = data.title ?? "";
+  let content = data.content ?? "";
+
+  if (data.lessonId) {
+    const lessonDoc = await admin
+      .firestore()
+      .doc(`lessons/${data.lessonId}`)
+      .get();
+    if (!lessonDoc.exists) {
+      throw new HttpsError("not-found", "Lesson not found");
     }
-    const uid = request.auth.uid;
-    await assertTeacher(uid);
-    await checkRateLimit("generateLessonSummary", uid);
-
-    const data = validateInput(
-      generateLessonSummarySchema,
-      request.data
-    ) as GenerateLessonSummaryInput;
-
-    let title = data.title ?? "";
-    let content = data.content ?? "";
-
-    if (data.lessonId) {
-      const lessonDoc = await admin
-        .firestore()
-        .doc(`lessons/${data.lessonId}`)
-        .get();
-      if (!lessonDoc.exists) {
-        throw new HttpsError("not-found", "Lesson not found");
-      }
-      const lesson = lessonDoc.data();
-      if (lesson?.ownerId !== uid) {
-        throw new HttpsError(
-          "permission-denied",
-          "You can only generate summaries for your own lessons"
-        );
-      }
-      title = lesson?.title ?? "";
-      content = lesson?.content ?? "";
-    }
-
-    if (!title && !content) {
+    const lesson = lessonDoc.data();
+    if (lesson?.ownerId !== uid) {
       throw new HttpsError(
-        "invalid-argument",
-        "Provide lessonId or title/content to summarize"
+        "permission-denied",
+        "You can only generate summaries for your own lessons"
       );
     }
-
-    const summary = await generateSummaryWithGemini(title, content);
-    return { summary };
+    title = lesson?.title ?? "";
+    content = lesson?.content ?? "";
   }
-);
+
+  if (!title && !content) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Provide lessonId or title/content to summarize"
+    );
+  }
+
+  const summary = await generateSummaryWithGemini(title, content);
+  return { summary };
+});

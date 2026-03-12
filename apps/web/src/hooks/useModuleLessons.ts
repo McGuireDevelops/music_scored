@@ -18,6 +18,12 @@ export interface LessonWithId extends Lesson {
   id: string;
 }
 
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as T;
+}
+
 export function useModuleLessons(
   classId: string | undefined,
   moduleId: string | undefined
@@ -56,12 +62,8 @@ export function useModuleLessons(
     ownerId: string
   ) => {
     if (!classId || !moduleId) throw new Error("No class/module selected");
-    const ref = await addDoc(collection(db, "lessons"), {
-      ...data,
-      classId,
-      moduleId,
-      ownerId,
-    });
+    const payload = stripUndefined({ ...data, classId, moduleId, ownerId });
+    const ref = await addDoc(collection(db, "lessons"), payload);
     setLessons((prev) => [
       ...prev,
       { id: ref.id, ...data, classId, moduleId, ownerId } as LessonWithId,
@@ -73,6 +75,7 @@ export function useModuleLessons(
     data: Partial<Pick<LessonWithId, "title" | "content" | "type" | "order" | "mediaRefs" | "summary">>,
     updateMode?: "push" | "newVersion"
   ) => {
+    const cleanData = stripUndefined({ ...data });
     if (updateMode === "newVersion") {
       const lessonSnap = await getDoc(doc(db, "lessons", lessonId));
       if (lessonSnap.exists()) {
@@ -80,24 +83,24 @@ export function useModuleLessons(
         const version = (current.version ?? 0) + 1;
         await addDoc(
           collection(db, "lessons", lessonId, "lessonVersions"),
-          {
+          stripUndefined({
             version,
             title: current.title,
             content: current.content,
             summary: current.summary,
             mediaRefs: current.mediaRefs,
             timestamp: Date.now(),
-          }
+          })
         );
         await updateDoc(doc(db, "lessons", lessonId), {
-          ...data,
+          ...cleanData,
           version,
         });
       } else {
-        await updateDoc(doc(db, "lessons", lessonId), data);
+        await updateDoc(doc(db, "lessons", lessonId), cleanData);
       }
     } else {
-      await updateDoc(doc(db, "lessons", lessonId), data);
+      await updateDoc(doc(db, "lessons", lessonId), cleanData);
     }
     setLessons((prev) =>
       prev.map((l) => (l.id === lessonId ? { ...l, ...data } : l))

@@ -43,18 +43,21 @@ export default function ClassDetail() {
   // "Missing or insufficient permissions" on page refresh.
   const safeClassId = !authLoading && user ? id : undefined;
 
+  const needsRoster = activeTab === "roster" || activeTab === "live";
+  const rosterClassId = needsRoster ? safeClassId : undefined;
+
   const {
     cohorts,
     loading: cohortsLoading,
     createCohort,
     deleteCohort,
-  } = useClassCohorts(safeClassId);
+  } = useClassCohorts(rosterClassId);
   const {
     enrollments,
     loading: enrollmentsLoading,
     addEnrollment,
     removeEnrollment,
-  } = useClassEnrollments(safeClassId);
+  } = useClassEnrollments(rosterClassId);
   const { issueCertification } = useIssueCertification(user?.uid);
   const {
     getStatus: getPlaylistStatus,

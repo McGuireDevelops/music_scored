@@ -43,6 +43,10 @@ export function useClassQuizzes(classId: string | undefined) {
           snap.docs.map((d) => ({ id: d.id, ...d.data() } as QuizWithId))
         );
       })
+      .catch((err) => {
+        console.error("Failed to load quizzes:", err);
+        setQuizzes([]);
+      })
       .finally(() => setLoading(false));
   }, [classId]);
 

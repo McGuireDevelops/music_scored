@@ -30,6 +30,10 @@ export function useClassCohorts(classId: string | undefined) {
           snap.docs.map((d) => ({ id: d.id, ...d.data() } as CohortWithId))
         );
       })
+      .catch((err) => {
+        console.error("Failed to load cohorts:", err);
+        setCohorts([]);
+      })
       .finally(() => setLoading(false));
   }, [classId]);
 

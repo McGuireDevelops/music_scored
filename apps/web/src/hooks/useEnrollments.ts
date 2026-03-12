@@ -35,6 +35,10 @@ export function useClassEnrollments(classId: string | undefined) {
           } as EnrollmentWithId))
         );
       })
+      .catch((err) => {
+        console.error("Failed to load enrollments:", err);
+        setEnrollments([]);
+      })
       .finally(() => setLoading(false));
   }, [classId]);
 

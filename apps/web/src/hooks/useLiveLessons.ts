@@ -48,6 +48,10 @@ export function useClassLiveLessons(classId: string | undefined) {
           snap.docs.map((d) => ({ id: d.id, ...d.data() } as LiveLessonWithId))
         );
       })
+      .catch((err) => {
+        console.error("Failed to load live lessons:", err);
+        setLessons([]);
+      })
       .finally(() => setLoading(false));
   }, [classId]);
 

@@ -109,14 +109,14 @@ service cloud.firestore {
 
     match /classes/{classId}/cohorts/{cohortId} {
       allow read: if request.auth != null && (
-        isClassTeacher(classId) || studentCanAccessClassContent(classId) || isAdmin()
+        ownsClass(classId) || isClassTeacher(classId) || studentCanAccessClassContent(classId) || isAdmin()
       );
       allow write: if isClassTeacher(classId);
     }
 
     match /classes/{classId}/enrollments/{enrollmentId} {
       allow read: if request.auth != null && (
-        isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
+        ownsClass(classId) || isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
       );
       allow create: if isTeacher() || isAdmin();
       allow update, delete: if isClassTeacher(classId) || isAdmin();

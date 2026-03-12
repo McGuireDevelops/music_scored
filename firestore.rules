@@ -103,40 +103,42 @@ service cloud.firestore {
         || studentCanAccessClassContent(classId)
         || isAdmin()
       );
-      allow create: if isTeacher() || isAdmin();
-      allow update, delete: if isClassTeacher(classId) || isAdmin();
+      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.teacherId == request.auth.uid || isAdmin()
+      );
     }
 
     match /classes/{classId}/cohorts/{cohortId} {
       allow read: if request.auth != null && (
         ownsClass(classId) || isClassTeacher(classId) || studentCanAccessClassContent(classId) || isAdmin()
       );
-      allow write: if isClassTeacher(classId);
+      allow write: if request.auth != null && (ownsClass(classId) || isAdmin());
     }
 
     match /classes/{classId}/enrollments/{enrollmentId} {
       allow read: if request.auth != null && (
         ownsClass(classId) || isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
       );
-      allow create: if isTeacher() || isAdmin();
-      allow update, delete: if isClassTeacher(classId) || isAdmin();
+      allow create: if request.auth != null && (ownsClass(classId) || isAdmin());
+      allow update, delete: if request.auth != null && (ownsClass(classId) || isAdmin());
     }
 
     // Entry requirements (NDA, end-user agreement, custom forms): teacher CRUD; students read when they have grant (to complete)
     match /classes/{classId}/entryRequirements/{reqId} {
       allow read: if request.auth != null && (
-        isClassTeacher(classId) || (isStudent() && hasValidAccessGrant(classId)) || isAdmin()
+        ownsClass(classId) || (isStudent() && hasValidAccessGrant(classId)) || isAdmin()
       );
-      allow create, update, delete: if isClassTeacher(classId);
+      allow create, update, delete: if request.auth != null && (ownsClass(classId) || isAdmin());
     }
 
     // Requirement completions: student write own; teacher read for roster
     match /classes/{classId}/requirementCompletions/{completionId} {
       allow read: if request.auth != null && (
-        isClassTeacher(classId) || resource.data.userId == request.auth.uid || isAdmin()
+        ownsClass(classId) || resource.data.userId == request.auth.uid || isAdmin()
       );
       allow create: if isStudent() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if resource.data.userId == request.auth.uid || isClassTeacher(classId);
+      allow update, delete: if resource.data.userId == request.auth.uid || ownsClass(classId) || isAdmin();
     }
 
     // Curricula: teacher CRUD own; authenticated users can read
@@ -144,25 +146,30 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         resource.data.teacherId == request.auth.uid || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
     }
 
     match /modules/{moduleId} {
       allow read: if request.auth != null && (
         ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create, update: if (isTeacher() && get(/databases/$(database)/documents/classes/$(request.resource.data.classId)).data.teacherId == request.auth.uid)
-        || (isAdmin() && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId)));
-      allow delete: if (isTeacher() && ownsClass(resource.data.classId))
-        || isAdmin();
+      allow create: if request.auth != null && (
+        ownsClass(request.resource.data.classId) || isAdmin()
+      );
+      allow update: if request.auth != null && (
+        ownsClass(request.resource.data.classId) || isAdmin()
+      );
+      allow delete: if request.auth != null && (
+        ownsClass(resource.data.classId) || isAdmin()
+      );
     }
 
     // Lesson placements (attach/clone across modules)
     match /lessonPlacements/{placementId} {
       allow read: if request.auth != null && (hasValidAccessGrant(resource.data.classId) || isAdmin());
-      allow create: if isTeacher() && isClassTeacher(request.resource.data.classId);
-      allow update, delete: if isTeacher() && isClassTeacher(resource.data.classId);
+      allow create: if request.auth != null && ownsClass(request.resource.data.classId);
+      allow update, delete: if request.auth != null && ownsClass(resource.data.classId);
     }
 
     // Lessons (recorded)
@@ -171,11 +178,14 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
         || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
 
       match /lessonVersions/{versionId} {
-        allow read, write: if isTeacher() && exists(/databases/$(database)/documents/lessons/$(lessonId))
+        allow read, write: if request.auth != null
+          && exists(/databases/$(database)/documents/lessons/$(lessonId))
           && get(/databases/$(database)/documents/lessons/$(lessonId)).data.ownerId == request.auth.uid;
       }
     }
@@ -186,8 +196,10 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
         || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
     }
 
     // Assignments
@@ -196,31 +208,34 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
         || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
     }
 
     match /assignments/{assignmentId}/submissions/{submissionId} {
       allow read: if request.auth != null && (
-        isClassTeacher(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId)
+        ownsClass(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId)
         || resource.data.userId == request.auth.uid || isAdmin()
       );
       allow create: if isStudent() && request.resource.data.userId == request.auth.uid
         && studentCanAccessClassContent(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId);
       allow update, delete: if resource.data.userId == request.auth.uid
-        || isClassTeacher(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId);
+        || ownsClass(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classId);
     }
 
     // Rubrics: teacher CRUD own; students can read (e.g. when viewing assignment/feedback)
     match /rubrics/{rubricId} {
       allow read: if request.auth != null;
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
     // Rubric edit history: teacher read/write when they own the rubric
     match /rubrics/{rubricId}/editHistory/{editId} {
-      allow read, write: if isTeacher() && get(/databases/$(database)/documents/rubrics/$(rubricId)).data.ownerId == request.auth.uid;
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/rubrics/$(rubricId)).data.ownerId == request.auth.uid;
     }
 
     // Feedback: linked to submissionId + assignmentId; teacher write; student read own
@@ -230,8 +245,8 @@ service cloud.firestore {
         || resource.data.teacherId == request.auth.uid
         || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
     }
 
     // Quizzes
@@ -240,39 +255,41 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
         || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
     }
 
     match /quizzes/{quizId}/questions/{qId} {
       allow read, write: if request.auth != null && (
-        isTeacher() && get(/databases/$(database)/documents/quizzes/$(quizId)).data.ownerId == request.auth.uid
+        get(/databases/$(database)/documents/quizzes/$(quizId)).data.ownerId == request.auth.uid
         || studentCanAccessClassContent(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId)
       );
     }
 
     // Answer key: teacher-only; students never see correct answers
     match /quizzes/{quizId}/answerKey/{qId} {
-      allow read, write: if request.auth != null && isTeacher()
+      allow read, write: if request.auth != null
         && get(/databases/$(database)/documents/quizzes/$(quizId)).data.ownerId == request.auth.uid;
     }
 
     match /quizzes/{quizId}/attempts/{attemptId} {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
-        || isClassTeacher(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId)
+        || ownsClass(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId)
         || isAdmin()
       );
       allow create: if isStudent() && request.resource.data.userId == request.auth.uid
         && studentCanAccessClassContent(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId);
       allow update: if resource.data.userId == request.auth.uid
-        || (isClassTeacher(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId) || isAdmin());
+        || (ownsClass(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId) || isAdmin());
       allow delete: if resource.data.userId == request.auth.uid;
     }
 
     // Analysis snapshots: teacher-only; students never see
     match /analysisSnapshots/{snapshotId} {
-      allow read, write: if isTeacher() && (
+      allow read, write: if request.auth != null && (
         resource.data.createdBy == request.auth.uid
         || (request.resource != null && request.resource.data.createdBy == request.auth.uid)
       );
@@ -285,17 +302,18 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
         || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
     match /communities/{communityId}/threads/{threadId} {
       allow read: if request.auth != null && (
-        isClassTeacher(get(/databases/$(database)/documents/communities/$(communityId)).data.classId)
+        ownsClass(get(/databases/$(database)/documents/communities/$(communityId)).data.classId)
         || studentCanAccessClassContent(get(/databases/$(database)/documents/communities/$(communityId)).data.classId)
       );
-      allow create: if isStudent() || isTeacher();
-      allow update, delete: if resource.data.authorId == request.auth.uid || isClassTeacher(get(/databases/$(database)/documents/communities/$(communityId)).data.classId);
+      allow create: if request.auth != null;
+      allow update, delete: if resource.data.authorId == request.auth.uid
+        || ownsClass(get(/databases/$(database)/documents/communities/$(communityId)).data.classId);
     }
 
     // Portfolio: student-controlled; teachers can read items for classes they teach
@@ -316,8 +334,8 @@ service cloud.firestore {
         || resource.data.issuedBy == request.auth.uid
         || isAdmin()
       );
-      allow create: if isTeacher() && request.resource.data.issuedBy == request.auth.uid;
-      allow update, delete: if isTeacher() && resource.data.issuedBy == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.issuedBy == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.issuedBy == request.auth.uid;
     }
 
     // Certificate templates: teacher CRUD for own class; admin full access
@@ -327,8 +345,8 @@ service cloud.firestore {
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
-      allow create: if (isTeacher() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
-      allow update, delete: if (isTeacher() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow create: if request.auth != null && (request.resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update, delete: if request.auth != null && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
     // Class completions: teacher read; student read own; written by Cloud Function or teacher
@@ -338,8 +356,8 @@ service cloud.firestore {
         || ownsClass(resource.data.classId)
         || isAdmin()
       );
-      allow create: if isTeacher() || isAdmin();
-      allow update, delete: if isTeacher() || isAdmin();
+      allow create: if request.auth != null && (ownsClass(resource.data.classId) || isAdmin());
+      allow update, delete: if request.auth != null && (ownsClass(resource.data.classId) || isAdmin());
     }
 
     // Playlists: teacher CRUD for own class; admin full access; students read if they can access class
@@ -350,8 +368,8 @@ service cloud.firestore {
         || studentCanAccessClassContent(resource.data.classId)
         || isAdmin()
       );
-      allow create: if (isTeacher() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
-      allow update, delete: if (isTeacher() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow create: if request.auth != null && (request.resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update, delete: if request.auth != null && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
     match /playlists/{playlistId}/items/{itemId} {
@@ -361,7 +379,9 @@ service cloud.firestore {
         || studentCanAccessClassContent(get(/databases/$(database)/documents/playlists/$(playlistId)).data.classId)
         || isAdmin()
       );
-      allow create, update, delete: if (isTeacher() && get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerId == request.auth.uid) || isAdmin();
+      allow create, update, delete: if request.auth != null && (
+        get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerId == request.auth.uid || isAdmin()
+      );
     }
 
     // Playlist progress: student read/write own only
@@ -378,7 +398,7 @@ service cloud.firestore {
 
     // Teacher settings: teacher/admin read and write own
     match /teacherSettings/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId && cachedRole() in ['teacher', 'admin'];
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Enrollments (top-level if used)
@@ -388,14 +408,14 @@ service cloud.firestore {
         || ownsClass(resource.data.classId)
         || isAdmin()
       );
-      allow write: if isTeacher() || isAdmin();
+      allow write: if request.auth != null && (ownsClass(resource.data.classId) || isAdmin());
     }
 
     // Teacher availability for 1-on-1 bookings: teacher/admin writes own; authenticated users read (students browse slots)
     match /teacherAvailability/{teacherId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == teacherId && cachedRole() in ['teacher', 'admin'];
-      allow update, delete: if request.auth != null && request.auth.uid == teacherId && cachedRole() in ['teacher', 'admin'];
+      allow create: if request.auth != null && request.auth.uid == teacherId;
+      allow update, delete: if request.auth != null && request.auth.uid == teacherId;
     }
 
     // Bookings: teacher or student involved can read; writes only via Cloud Functions (Admin SDK)

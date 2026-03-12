@@ -1,4 +1,4 @@
-import { useParams, useLocation, Link, useSearchParams } from "react-router-dom";
+import { useParams, useLocation, Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useEffect } from "react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
@@ -10,11 +10,13 @@ import { useClassEnrollments } from "../hooks/useEnrollments";
 import { useIssueCertification } from "../hooks/useCertifications";
 import { usePlaylistProgress } from "../hooks/usePlaylistProgress";
 import { useClassLiveLessons } from "../hooks/useLiveLessons";
+import { useTeacherClasses } from "../hooks/useTeacherClasses";
 import { ContentPane } from "../components/dashboard/ContentPane";
 import { ClassReportsTab } from "../components/reports/ClassReportsTab";
 import { PlaylistManager } from "../components/playlists/PlaylistManager";
 import { CourseBuilder } from "../components/CourseBuilder";
 import type { LiveLessonStatus, RecordingShareTarget, ZoomRecording } from "@learning-scores/shared";
+import type { Class } from "../hooks/useTeacherClasses";
 import { ReviewDashboard } from "../components/live/ReviewDashboard";
 import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
 
@@ -26,6 +28,7 @@ type Tab = (typeof VALID_TABS)[number];
 export default function ClassDetail() {
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { profile, user, loading: authLoading } = useAuth();
   const isTeacherRoute = pathname.startsWith("/teacher");
@@ -59,6 +62,18 @@ export default function ClassDetail() {
     setStatus: setPlaylistStatus,
     removeFromDoList: removePlaylistFromDo,
   } = usePlaylistProgress(user?.uid);
+  const {
+    classes: teacherClasses,
+    setClasses: setTeacherClasses,
+  } = useTeacherClasses(isTeacherRoute ? user?.uid : undefined);
+
+  const handleSwitchClass = (newClassId: string) => {
+    navigate(`/teacher/class/${newClassId}?tab=builder`);
+  };
+
+  const handleClassCreated = (newClass: Class) => {
+    setTeacherClasses((prev) => [...prev, newClass]);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -128,6 +143,9 @@ export default function ClassDetail() {
                   className={className}
                   classDescription={classDescription}
                   userId={user?.uid ?? ""}
+                  allClasses={teacherClasses}
+                  onSwitchClass={handleSwitchClass}
+                  onClassCreated={handleClassCreated}
                 />
               )}
               {activeTab === "builder" && !isTeacherRoute && safeClassId && (

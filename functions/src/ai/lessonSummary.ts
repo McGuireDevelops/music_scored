@@ -58,7 +58,7 @@ Return only the summary text, no JSON or extra formatting.`;
  * Returns { summary: string }. Does NOT write to Firestore.
  */
 export const generateLessonSummary = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: false },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");

@@ -47,6 +47,7 @@ export function LessonBuilderForm({
   );
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
@@ -61,15 +62,23 @@ export function LessonBuilderForm({
 
   const handleAiSummary = async () => {
     setAiLoading(true);
+    setAiError(null);
     try {
       const res = await generateLessonSummary(
         lesson
           ? { lessonId: lesson.id }
           : { title, content }
       );
-      if (res.data?.summary) setSummary(res.data.summary);
-    } catch (err) {
+      if (res.data?.summary) {
+        setSummary(res.data.summary);
+      } else {
+        setAiError("No summary was returned. Please try again.");
+      }
+    } catch (err: unknown) {
       console.error("AI summary error:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to generate summary";
+      setAiError(message);
     } finally {
       setAiLoading(false);
     }
@@ -281,6 +290,9 @@ export function LessonBuilderForm({
             {aiLoading ? "Generating…" : "Use AI"}
           </button>
         </div>
+        {aiError && (
+          <p className="mt-1 text-sm text-red-600">{aiError}</p>
+        )}
       </div>
 
       {mediaRefs.length > 0 && (

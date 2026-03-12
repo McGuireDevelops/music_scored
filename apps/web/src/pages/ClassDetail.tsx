@@ -1074,7 +1074,7 @@ function RosterTab({
   };
 
   return (
-    <ContentPane title="Roster">
+    <ContentPane title="Cohorts">
       <section className="mb-8">
         <h3 className="mb-4 text-lg font-medium text-gray-900">Cohorts</h3>
         {cohortsLoading && <p className="text-gray-500">Loading&hellip;</p>}

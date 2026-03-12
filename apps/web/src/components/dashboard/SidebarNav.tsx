@@ -127,7 +127,7 @@ const navItems: {
 
 const curriculumTabs: { id: string; label: string }[] = [
   { id: "builder", label: "Course Builder" },
-  { id: "roster", label: "Roster" },
+  { id: "roster", label: "Cohorts" },
 ];
 
 const documentsNavItems: {
@@ -149,7 +149,7 @@ export const classNavTabs: { id: string; label: string }[] = [
   { id: "builder", label: "Course Builder" },
   { id: "quizzes", label: "Quizzes" },
   { id: "live", label: "Live" },
-  { id: "roster", label: "Roster" },
+  { id: "roster", label: "Cohorts" },
   { id: "reports", label: "Reports" },
   { id: "playlists", label: "Playlists" },
   { id: "community", label: "Community" },

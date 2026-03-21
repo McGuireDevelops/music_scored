@@ -14,6 +14,7 @@ import RubricBuilder from "./pages/RubricBuilder";
 import QuizBuilder from "./pages/QuizBuilder";
 import QuizEditPage from "./pages/QuizEditPage";
 import QuizAttemptsPage from "./pages/QuizAttemptsPage";
+import LiveQuizMonitorPage from "./pages/LiveQuizMonitorPage";
 import QuizPlayer from "./pages/QuizPlayer";
 import CommunityPage from "./pages/CommunityPage";
 import PortfolioPage from "./pages/PortfolioPage";
@@ -80,6 +81,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="teacher/class/:classId/quizzes" element={<QuizBuilder />} />
               <Route path="teacher/class/:classId/quiz/:quizId/edit" element={<QuizEditPage />} />
               <Route path="teacher/class/:classId/quiz/:quizId/attempts" element={<QuizAttemptsPage />} />
+              <Route
+                path="teacher/class/:classId/quiz/:quizId/live/:sessionId"
+                element={<LiveQuizMonitorPage />}
+              />
               <Route path="teacher/class/:classId/community" element={<CommunityPage />} />
               <Route path="teacher/class/:classId/assignment/:assignmentId" element={<AssignmentDetail />} />
               <Route path="teacher/class/:classId/student/:studentId" element={<StudentProfile />} />

@@ -14,7 +14,10 @@ export type QuizQuestionType =
   | "intervalVector"
   | "mixedMeter"
   | "polymeter"
-  | "visualScore";
+  | "visualScore"
+  | "mediaTimeCode"
+  | "staffSingleNote"
+  | "staffMelody";
 
 export interface MultipleChoicePayload {
   choices: Array<{ key: string; label: string }>;
@@ -65,6 +68,24 @@ export interface VisualScorePayload {
   correctRegions?: Array<{ barStart: number; barEnd: number }>;
 }
 
+/** Student sees `prompt` and optional `mediaRef`; grading fields are stripped into answerKey. */
+export interface MediaTimeCodePayload {
+  prompt?: string;
+  correctSeconds?: number;
+  toleranceSeconds?: number;
+}
+
+export interface StaffSingleNotePayload {
+  clef?: "treble" | "bass";
+  correctMidi?: number;
+}
+
+export interface StaffMelodyPayload {
+  maxNotes?: number;
+  expectedMidi?: number[];
+  clef?: "treble" | "bass";
+}
+
 export type QuizQuestionPayload =
   | MultipleChoicePayload
   | ChordIdentificationPayload
@@ -74,7 +95,10 @@ export type QuizQuestionPayload =
   | IntervalVectorPayload
   | MixedMeterPayload
   | PolymeterPayload
-  | VisualScorePayload;
+  | VisualScorePayload
+  | MediaTimeCodePayload
+  | StaffSingleNotePayload
+  | StaffMelodyPayload;
 
 export interface QuizQuestion {
   id: string;
@@ -129,6 +153,21 @@ export interface QuizAnswerVisualScore {
   value: { barStart: number; barEnd: number } | { coordinates?: unknown };
 }
 
+export interface QuizAnswerMediaTimeCode {
+  type: "mediaTimeCode";
+  value: { seconds: number };
+}
+
+export interface QuizAnswerStaffSingleNote {
+  type: "staffSingleNote";
+  value: { midi: number };
+}
+
+export interface QuizAnswerStaffMelody {
+  type: "staffMelody";
+  value: { midi: number[] };
+}
+
 export type QuizAnswer =
   | QuizAnswerRomanNumeral
   | QuizAnswerNashville
@@ -138,7 +177,10 @@ export type QuizAnswer =
   | QuizAnswerIntervalVector
   | QuizAnswerMixedMeter
   | QuizAnswerPolymeter
-  | QuizAnswerVisualScore;
+  | QuizAnswerVisualScore
+  | QuizAnswerMediaTimeCode
+  | QuizAnswerStaffSingleNote
+  | QuizAnswerStaffMelody;
 
 export interface QuizAttemptAnswer {
   questionId: string;
@@ -172,4 +214,28 @@ export interface Quiz {
   printIdentifier?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export type LiveQuizSessionStatus = "active" | "ended";
+
+/** Stored at liveQuizSessions/{sessionId} */
+export interface LiveQuizSession {
+  classId: string;
+  quizId: string;
+  createdBy: string;
+  createdAt: number;
+  status: LiveQuizSessionStatus;
+  endedAt?: number;
+  liveLessonId?: string;
+}
+
+/** Stored at liveQuizSessions/{sessionId}/participants/{userId} */
+export interface LiveQuizParticipantState {
+  userId: string;
+  displayName?: string;
+  updatedAt: number;
+  /** Draft answers in the same shape as quiz submission */
+  answers: QuizAttemptAnswer[];
+  answeredCount?: number;
+  submittedAt?: number;
 }

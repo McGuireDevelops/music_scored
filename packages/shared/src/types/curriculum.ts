@@ -130,3 +130,17 @@ export interface LiveLesson {
   isTimeManaged?: boolean;
   recording?: ZoomRecording;
 }
+
+/** In-session Q&A on a live lesson (`liveLessons/{id}/classQuestions`) */
+export type ClassQuestionStatus = "open" | "answered" | "returnTo";
+
+export interface ClassQuestion {
+  authorId: string;
+  text: string;
+  createdAt: number;
+  status: ClassQuestionStatus;
+  updatedAt?: number;
+}
+
+/** Must match Firestore rules max length for `classQuestions.text`. */
+export const CLASS_QUESTION_TEXT_MAX_LENGTH = 2000;

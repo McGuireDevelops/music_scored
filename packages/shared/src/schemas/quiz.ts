@@ -12,6 +12,9 @@ export const quizQuestionTypeSchema = z.enum([
   "mixedMeter",
   "polymeter",
   "visualScore",
+  "mediaTimeCode",
+  "staffSingleNote",
+  "staffMelody",
 ]);
 
 // Individual payload schemas for type-specific validation (optional)
@@ -143,4 +146,25 @@ export const quizSchema = z.object({
   title: z.string().min(1),
   correctionMode: quizCorrectionModeSchema.optional(),
   printIdentifier: z.string().optional(),
+});
+
+export const liveQuizSessionStatusSchema = z.enum(["active", "ended"]);
+
+export const liveQuizSessionSchema = z.object({
+  classId: z.string().min(1),
+  quizId: z.string().min(1),
+  createdBy: z.string().min(1),
+  createdAt: z.number(),
+  status: liveQuizSessionStatusSchema,
+  endedAt: z.number().optional(),
+  liveLessonId: z.string().optional(),
+});
+
+export const liveQuizParticipantStateSchema = z.object({
+  userId: z.string().min(1),
+  displayName: z.string().optional(),
+  updatedAt: z.number(),
+  answers: z.array(quizAttemptAnswerSchema),
+  answeredCount: z.number().optional(),
+  submittedAt: z.number().optional(),
 });

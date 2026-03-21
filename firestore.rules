@@ -86,6 +86,35 @@ service cloud.firestore {
       );
     }
 
+    function liveLessonDoc(lessonId) {
+      return get(/databases/$(database)/documents/liveLessons/$(lessonId));
+    }
+
+    // Same audience as reading the parent liveLessons document.
+    function canReadLiveLessonQuestions(lessonId) {
+      let ll = liveLessonDoc(lessonId);
+      return request.auth != null && ll.exists && (
+        ll.data.ownerId == request.auth.uid
+        || ownsClass(ll.data.classId) || studentCanAccessClassContent(ll.data.classId) || isAdmin()
+      );
+    }
+
+    function canSubmitLiveLessonQuestion(lessonId) {
+      let ll = liveLessonDoc(lessonId);
+      return request.auth != null && ll.exists
+        && (ll.data.ownerId == request.auth.uid
+          || ownsClass(ll.data.classId) || studentCanAccessClassContent(ll.data.classId) || isAdmin())
+        && (ll.data.status == 'scheduled' || ll.data.status == 'live');
+    }
+
+    function canModerateLiveLessonQuestions(lessonId) {
+      let ll = liveLessonDoc(lessonId);
+      return request.auth != null && ll.exists && (
+        ll.data.ownerId == request.auth.uid
+        || ownsClass(ll.data.classId) || isAdmin()
+      );
+    }
+
     // Users: own doc; admin read/update all; teachers can read (for roster/student list)
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isTeacher());
@@ -215,6 +244,27 @@ service cloud.firestore {
       match /teacherPlanItems/{itemId} {
         allow read, create, update, delete: if canAccessLiveLessonTeacherPlan(lessonId);
       }
+
+      // Class Q&A queue: students submit while scheduled/live; teachers set status.
+      match /classQuestions/{questionId} {
+        allow read: if canReadLiveLessonQuestions(lessonId);
+        allow create: if canSubmitLiveLessonQuestion(lessonId)
+          && request.resource.data.keys().hasOnly(['authorId', 'text', 'createdAt', 'status'])
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.status == 'open'
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt is int;
+        allow update: if canModerateLiveLessonQuestions(lessonId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.authorId == resource.data.authorId
+          && request.resource.data.text == resource.data.text
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.status in ['open', 'answered', 'returnTo']
+          && (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is int);
+        allow delete: if canModerateLiveLessonQuestions(lessonId);
+      }
     }
 
     // Assignments
@@ -300,6 +350,59 @@ service cloud.firestore {
       allow update: if resource.data.userId == request.auth.uid
         || (ownsClass(get(/databases/$(database)/documents/quizzes/$(quizId)).data.classId) || isAdmin());
       allow delete: if resource.data.userId == request.auth.uid;
+    }
+
+    // Live quiz sessions: teacher runs session; students write own participant doc while session is active
+    match /liveQuizSessions/{sessionId} {
+      allow read: if request.auth != null && (
+        isAdmin()
+        || ownsClass(resource.data.classId)
+        || studentCanAccessClassContent(resource.data.classId)
+      );
+      allow create: if request.auth != null
+        && ownsClass(request.resource.data.classId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.keys().hasAll(['classId', 'quizId', 'createdBy', 'createdAt', 'status'])
+        && request.resource.data.status == 'active';
+      allow update, delete: if request.auth != null && (
+        ownsClass(resource.data.classId) || isAdmin()
+      );
+    }
+
+    match /liveQuizSessions/{sessionId}/participants/{userId} {
+      function liveQuizSessionClassId() {
+        return get(/databases/$(database)/documents/liveQuizSessions/$(sessionId)).data.classId;
+      }
+      function liveQuizSessionStatus() {
+        return get(/databases/$(database)/documents/liveQuizSessions/$(sessionId)).data.status;
+      }
+      allow read: if request.auth != null && (
+        request.auth.uid == userId
+        || ownsClass(liveQuizSessionClassId())
+        || isAdmin()
+      );
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.userId == userId
+        && studentCanAccessClassContent(liveQuizSessionClassId())
+        && liveQuizSessionStatus() == 'active';
+      // Student updates while active; after session ended only if draft answers unchanged (e.g. set submittedAt)
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && resource.data.userId == userId
+        && studentCanAccessClassContent(liveQuizSessionClassId())
+        && (
+          liveQuizSessionStatus() == 'active'
+          || (
+            liveQuizSessionStatus() == 'ended'
+            && request.resource.data.answers == resource.data.answers
+          )
+        );
+      allow delete: if request.auth != null && (
+        request.auth.uid == userId
+        || ownsClass(liveQuizSessionClassId())
+        || isAdmin()
+      );
     }
 
     // Analysis snapshots: teacher-only; students never see

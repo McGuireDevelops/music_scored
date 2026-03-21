@@ -114,8 +114,8 @@ function AppShellHeader({
   const brandLabel = branding.tenantName ?? "Learning Scores";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200/80 bg-white/80 px-6 backdrop-blur-sm">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-gray-200/80 bg-white/80 px-6 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center gap-4">
         <button
           type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -141,9 +141,13 @@ function AppShellHeader({
           </svg>
         </button>
         <span className="text-sm text-gray-600">{brandLabel}</span>
-        {children}
       </div>
-      {user && <UserProfileDropdown />}
+      <div className="min-w-0 max-sm:hidden sm:flex-1">{children}</div>
+      {user && (
+        <div className="ml-auto shrink-0">
+          <UserProfileDropdown />
+        </div>
+      )}
     </header>
   );
 }
@@ -176,11 +180,9 @@ export default function Layout() {
       <div className={`pl-0 transition-[padding] duration-200 ${collapsed ? "lg:pl-16" : "lg:pl-60"}`}>
         <AppShellHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} collapsed={collapsed} setCollapsed={setCollapsed}>
           {(profile?.role === "teacher" || profile?.role === "admin") && user ? (
-            <div className="hidden sm:block">
-              <TeacherSearch teacherId={user.uid} />
-            </div>
+            <TeacherSearch teacherId={user.uid} />
           ) : (
-            <div className="hidden items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-500 sm:flex">
+            <div className="flex w-fit items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-500">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>

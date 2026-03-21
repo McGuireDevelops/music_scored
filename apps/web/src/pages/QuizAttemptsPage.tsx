@@ -6,7 +6,12 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import { useQuizAttemptsForQuiz, type QuizAttemptWithId } from "../hooks/useQuizAttemptsForQuiz";
 import { useQuizQuestions } from "../hooks/useQuizzes";
 import { useQuiz } from "../hooks/useQuizzes";
-import type { MultipleChoicePayload } from "@learning-scores/shared";
+import { QUESTION_TYPES } from "../components/quiz/QuizTeacherQuestionEditor";
+import { formatAttemptAnswerDisplay } from "../utils/formatQuizAttemptAnswer";
+
+function questionTypeLabel(type: string): string {
+  return QUESTION_TYPES.find((t) => t.value === type)?.label ?? type;
+}
 
 export default function QuizAttemptsPage() {
   const { classId, quizId } = useParams<{ classId: string; quizId: string }>();
@@ -140,37 +145,30 @@ export default function QuizAttemptsPage() {
           </div>
 
           {selectedAttempt && (
-            <div className="w-96 rounded-lg border border-gray-200 bg-white p-6 shadow-card">
+            <div className="w-full max-w-lg shrink-0 rounded-lg border border-gray-200 bg-white p-6 shadow-card">
               <h3 className="mb-4 font-medium text-gray-900">
                 {userNames[selectedAttempt.userId] ?? selectedAttempt.userId}
               </h3>
 
-              <div className="mb-4 space-y-2">
+              <div className="mb-4 max-h-[60vh] space-y-2 overflow-y-auto">
                 {questions.map((q, idx) => {
                   const ans = selectedAttempt.answers.find((a) => a.questionId === q.id);
-                  const payload = q.payload as MultipleChoicePayload;
-                  const choiceLabels = payload.choices?.map((c) => ({
-                    key: c.key,
-                    label: c.label,
-                  }));
-                  const selectedKeys = (ans?.answer?.value as string[]) ?? [];
-                  const correctKeys = payload.correctKeys ?? [];
+                  const { student, correct } = formatAttemptAnswerDisplay(
+                    q,
+                    ans?.answer as { type: string; value: unknown } | undefined
+                  );
                   return (
                     <div key={q.id} className="rounded border border-gray-100 p-3">
                       <p className="text-sm font-medium text-gray-700">
-                        {idx + 1}. {q.type}
+                        {idx + 1}. {questionTypeLabel(q.type)}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Answer:{" "}
-                        {selectedKeys
-                          .map((k) => choiceLabels?.find((c) => c.key === k)?.label ?? k)
-                          .join(", ") || "—"}
+                        <span className="font-medium text-gray-700">Answer: </span>
+                        {student}
                       </p>
-                      <p className="text-xs text-green-700">
-                        Correct:{" "}
-                        {correctKeys
-                          .map((k) => choiceLabels?.find((c) => c.key === k)?.label ?? k)
-                          .join(", ") || "—"}
+                      <p className="text-xs text-green-800">
+                        <span className="font-medium">Correct: </span>
+                        {correct}
                       </p>
                     </div>
                   );

@@ -12,6 +12,10 @@ const ANSWER_KEYS = [
   "validAnswers",
   "validVectors",
   "correctRegions",
+  "correctSeconds",
+  "toleranceSeconds",
+  "correctMidi",
+  "expectedMidi",
 ] as const;
 
 /** Create a student-safe payload (no correct answer data) */
@@ -49,6 +53,18 @@ export function extractAnswerKey(
   }
   if (payload.partialCreditMap !== undefined) {
     key.partialCreditMap = payload.partialCreditMap;
+  }
+  if (payload.correctSeconds !== undefined) {
+    key.correctSeconds = payload.correctSeconds;
+  }
+  if (payload.toleranceSeconds !== undefined) {
+    key.toleranceSeconds = payload.toleranceSeconds;
+  }
+  if (payload.correctMidi !== undefined) {
+    key.correctMidi = payload.correctMidi;
+  }
+  if (payload.expectedMidi !== undefined) {
+    key.expectedMidi = payload.expectedMidi;
   }
   return Object.keys(key).length > 0 ? key : null;
 }

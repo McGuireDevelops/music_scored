@@ -49,8 +49,8 @@ export function TeacherSearch({ teacherId }: { teacherId: string | undefined }) 
   const order: SearchResultType[] = ["course", "lesson", "document", "quiz", "student"];
 
   return (
-    <div ref={containerRef} className="relative">
-      <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm">
+    <div ref={containerRef} className="relative w-full max-w-5xl">
+      <div className="flex w-full min-w-0 items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm">
         <svg
           className="h-4 w-4 shrink-0 text-gray-500"
           fill="none"
@@ -77,7 +77,7 @@ export function TeacherSearch({ teacherId }: { teacherId: string | undefined }) 
           onFocus={() => {
             if (query.trim()) setOpen(true);
           }}
-          className="min-w-[200px] flex-1 border-0 bg-transparent text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-0 sm:min-w-[280px]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-0 sm:min-w-[12rem]"
           aria-label="Search courses, lessons, documents, quizzes, students"
         />
       </div>

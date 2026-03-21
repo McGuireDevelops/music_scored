@@ -19,6 +19,8 @@ import type { LiveLessonStatus, RecordingShareTarget, ZoomRecording } from "@lea
 import type { Class } from "../hooks/useTeacherClasses";
 import { ReviewDashboard } from "../components/live/ReviewDashboard";
 import { TeacherPlanEditor } from "../components/live/TeacherPlanEditor";
+import { TeacherClassQuestionQueue } from "../components/live/TeacherClassQuestionQueue";
+import { StudentClassQuestions } from "../components/live/StudentClassQuestions";
 import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
 
 const VALID_TABS = [
@@ -576,6 +578,9 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
   const [reviewLessonId, setReviewLessonId] = useState<string | null>(null);
   const [shareModalLessonId, setShareModalLessonId] = useState<string | null>(null);
   const [planExpandedLessonId, setPlanExpandedLessonId] = useState<string | null>(null);
+  const [questionsExpandedLessonId, setQuestionsExpandedLessonId] = useState<string | null>(
+    null
+  );
 
   const sortedLessons = [...lessons].sort((a, b) => b.scheduledAt - a.scheduledAt);
   const reviewLesson = reviewLessonId
@@ -797,6 +802,19 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                       >
                         {planExpandedLessonId === lesson.id ? "Hide plan" : "Teaching plan"}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuestionsExpandedLessonId((id) =>
+                            id === lesson.id ? null : lesson.id
+                          )
+                        }
+                        className="rounded-lg border border-violet-300 px-3 py-2 text-sm font-medium text-violet-800 transition-colors hover:bg-violet-50"
+                      >
+                        {questionsExpandedLessonId === lesson.id
+                          ? "Hide questions"
+                          : "Question queue"}
+                      </button>
                     </>
                   )}
                   {lesson.status === "ended" && lesson.recording && (
@@ -870,6 +888,9 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
               {planExpandedLessonId === lesson.id && (
                 <TeacherPlanEditor liveLessonId={lesson.id} classId={classId} />
               )}
+              {questionsExpandedLessonId === lesson.id && (
+                <TeacherClassQuestionQueue lessonId={lesson.id} />
+              )}
             </div>
           ))}
         </div>
@@ -893,6 +914,7 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
 }
 
 function StudentLiveClassesView({ classId }: { classId: string }) {
+  const { user } = useAuth();
   const { lessons, loading } = useClassLiveLessons(classId);
   const { shares, loading: sharesLoading, getShareForSource } = useStudentRecordingShares(classId);
   const now = Date.now();
@@ -934,6 +956,7 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                   </a>
                 )}
               </div>
+              <StudentClassQuestions lessonId={lesson.id} userId={user?.uid} />
             </div>
           ))}
         </div>
@@ -963,6 +986,7 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                   </div>
                   <StatusBadge status={lesson.status} />
                 </div>
+                <StudentClassQuestions lessonId={lesson.id} userId={user?.uid} />
               </div>
             ))}
         </div>

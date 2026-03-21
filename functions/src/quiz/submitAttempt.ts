@@ -3,6 +3,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import { computeQuestionPoints } from "@learning-scores/shared";
 import { validateInput } from "../validation";
 import { submitQuizAttemptSchema } from "../validation/schemas";
 
@@ -25,22 +26,7 @@ function computeScoreFromAnswerKey(
     const ans = answers[q.id];
     if (!ans || !keyData) continue;
 
-    if (q.type === "multipleChoiceSingle" || q.type === "multipleChoiceMulti") {
-      const correctKeys = (keyData.correctKeys ?? []) as string[];
-      const selected = (ans.value as string[]) ?? [];
-      if (keyData.partialCreditMap) {
-        const map = keyData.partialCreditMap as Record<string, number>;
-        for (const k of selected) score += map[k] ?? 0;
-      } else {
-        const correctSet = new Set(correctKeys);
-        const selectedSet = new Set(selected);
-        const isCorrect =
-          correctSet.size === selectedSet.size &&
-          [...correctSet].every((k) => selectedSet.has(k));
-        if (isCorrect) score += points;
-      }
-    }
-    // Add more question types as needed; MC is the only one supported for auto-score today
+    score += computeQuestionPoints(q.type, keyData, ans, points);
   }
   return { score, maxScore };
 }

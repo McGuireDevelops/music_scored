@@ -219,7 +219,7 @@ export function useQuizQuestions(
 
   const updateQuestion = async (
     questionId: string,
-    data: Partial<Omit<QuizQuestion, "id">>
+    data: Partial<Omit<QuizQuestion, "id">> & { mediaRef?: QuizQuestion["mediaRef"] | null }
   ) => {
     if (!quizId) throw new Error("No quiz");
     const payload = data.payload as Record<string, unknown> | undefined;
@@ -227,19 +227,21 @@ export function useQuizQuestions(
     let answerKeyData: Record<string, unknown> | null = null;
 
     if (payload) {
-      sanitized = sanitizePayloadForStudent(
-        payload,
-        (data.type ?? payload) as QuizQuestion["type"]
-      );
-      answerKeyData = extractAnswerKey(
-        payload,
-        (data.type ?? "multipleChoiceSingle") as string
-      );
+      const questionType =
+        data.type ??
+        questions.find((x) => x.id === questionId)?.type ??
+        "multipleChoiceSingle";
+      sanitized = sanitizePayloadForStudent(payload, questionType);
+      answerKeyData = extractAnswerKey(payload, questionType);
     }
 
-    const updateData = payload
-      ? { ...data, payload: sanitized }
-      : data;
+    const updateData: Record<string, unknown> = { ...data };
+    if (payload) {
+      updateData.payload = sanitized;
+    }
+    if (data.mediaRef === null) {
+      updateData.mediaRef = deleteField();
+    }
     await updateDoc(
       doc(db, "quizzes", quizId, "questions", questionId),
       updateData
@@ -256,12 +258,19 @@ export function useQuizQuestions(
       }
     }
 
+    const { mediaRef: patchMedia, ...restPatch } = data;
+
     setQuestions((prev) =>
       prev.map((q) =>
         q.id === questionId
           ? {
               ...q,
-              ...data,
+              ...restPatch,
+              ...(patchMedia === null
+                ? { mediaRef: undefined }
+                : patchMedia !== undefined
+                  ? { mediaRef: patchMedia }
+                  : {}),
               payload: payload
                 ? (forTeacher && answerKeyData
                     ? mergeAnswerKeyIntoPayload(sanitized!, answerKeyData)

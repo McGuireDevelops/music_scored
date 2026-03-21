@@ -70,6 +70,23 @@
         { "fieldPath": "classId", "order": "ASCENDING" },
         { "fieldPath": "linkType", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "liveQuizSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId", "order": "ASCENDING" },
+        { "fieldPath": "quizId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "liveQuizSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

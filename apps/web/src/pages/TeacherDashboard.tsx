@@ -110,13 +110,25 @@ export default function TeacherDashboard() {
     return weeks;
   }, [assignments]);
 
-  const [showForm, setShowForm] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPaid, setIsPaid] = useState(false);
   const [stripePriceId, setStripePriceId] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  useEffect(() => {
+    if (!createModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCreateModalOpen(false);
+        setCreateError("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [createModalOpen]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +166,7 @@ export default function TeacherDashboard() {
       setDescription("");
       setIsPaid(false);
       setStripePriceId("");
-      setShowForm(false);
+      setCreateModalOpen(false);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create class");
     } finally {
@@ -176,10 +188,10 @@ export default function TeacherDashboard() {
           </div>
           <button
             type="button"
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => setCreateModalOpen(true)}
             className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            {showForm ? "Cancel" : "Create class"}
+            Create class
           </button>
         </div>
 
@@ -374,69 +386,110 @@ export default function TeacherDashboard() {
           )}
         </section>
 
-        {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="mb-8 max-w-md rounded-card border border-gray-200 bg-white p-6 shadow-card"
+        {createModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-class-modal-title"
+            onClick={() => {
+              setCreateModalOpen(false);
+              setCreateError("");
+            }}
           >
-            <h3 className="mb-4 font-semibold text-gray-900">New class</h3>
-            <div className="mb-4">
-              <label htmlFor="class-name" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Class name
-              </label>
-              <input
-                id="class-name"
-                type="text"
-                placeholder="e.g. Film Scoring 101"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div className="mb-4">
-              <label className="mb-2 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isPaid}
-                  onChange={(e) => setIsPaid(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <span className="text-sm font-medium text-gray-700">Paid class</span>
-              </label>
-              {isPaid && (
-                <input
-                  type="text"
-                  placeholder="Stripe Price ID (e.g. price_...)"
-                  value={stripePriceId}
-                  onChange={(e) => setStripePriceId(e.target.value)}
-                  className="mb-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              )}
-            </div>
-            <div className="mb-4">
-              <label htmlFor="class-desc" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Description (optional)
-              </label>
-              <input
-                id="class-desc"
-                type="text"
-                placeholder="Brief description of the course"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            {createError && (
-              <p className="mb-4 text-sm text-red-600">{createError}</p>
-            )}
-            <button
-              type="submit"
-              disabled={creating}
-              className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+            <div
+              className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-card border border-gray-200 bg-white p-6 shadow-card"
+              onClick={(e) => e.stopPropagation()}
             >
-              {creating ? "Creating…" : "Create"}
-            </button>
-          </form>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 id="create-class-modal-title" className="text-lg font-semibold text-gray-900">
+                  New class
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    setCreateError("");
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <form onSubmit={handleCreate}>
+                <div className="mb-4">
+                  <label htmlFor="class-name" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Class name
+                  </label>
+                  <input
+                    id="class-name"
+                    type="text"
+                    placeholder="e.g. Film Scoring 101"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="mb-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isPaid}
+                      onChange={(e) => setIsPaid(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Paid class</span>
+                  </label>
+                  {isPaid && (
+                    <input
+                      type="text"
+                      placeholder="Stripe Price ID (e.g. price_...)"
+                      value={stripePriceId}
+                      onChange={(e) => setStripePriceId(e.target.value)}
+                      className="mb-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  )}
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="class-desc" className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Description (optional)
+                  </label>
+                  <input
+                    id="class-desc"
+                    type="text"
+                    placeholder="Brief description of the course"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                {createError && (
+                  <p className="mb-4 text-sm text-red-600">{createError}</p>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="rounded-xl bg-primary px-5 py-2.5 font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {creating ? "Creating…" : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={creating}
+                    onClick={() => {
+                      setCreateModalOpen(false);
+                      setCreateError("");
+                    }}
+                    className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
         {loading && (
           <p className="text-gray-500">Loading your classes…</p>
@@ -446,7 +499,7 @@ export default function TeacherDashboard() {
             {error}
           </p>
         )}
-        {!loading && !error && classes.length === 0 && !showForm && (
+        {!loading && !error && classes.length === 0 && (
           <div className="rounded-card max-w-md border border-gray-200 bg-white p-8 shadow-card">
             <p className="text-gray-600">
               You don&apos;t have any classes yet. Create one to get started.

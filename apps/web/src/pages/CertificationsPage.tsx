@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
@@ -24,7 +24,7 @@ export default function CertificationsPage() {
   }, [certifications]);
 
   return (
-    <ProtectedRoute requiredRole="student">
+    <ProtectedRoute>
       <div>
         <h2 className="mb-6 text-2xl font-semibold tracking-tight text-gray-900">
           My certifications

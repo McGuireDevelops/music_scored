@@ -428,6 +428,12 @@ export function CourseBuilderModuleSection({
                                 }
                               />
                             </div>
+                            <Link
+                              to={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
+                              className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-primary no-underline hover:bg-gray-50"
+                            >
+                              Present
+                            </Link>
                           </div>
                           {editingLessonId === lesson.id && editingLesson && (
                             <div className="ml-6 mt-1 mb-2 rounded-lg border border-gray-200 bg-white p-4">

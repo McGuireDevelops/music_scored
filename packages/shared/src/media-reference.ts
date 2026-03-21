@@ -12,6 +12,8 @@ export interface MediaReference {
   start?: number; // seconds for audio/video
   end?: number;
   barRange?: { start: number; end: number }; // for score
+  /** 1-based PDF page when the score is a PDF (viewers that support #page=) */
+  pdfPage?: number;
   label?: string;
 }
 

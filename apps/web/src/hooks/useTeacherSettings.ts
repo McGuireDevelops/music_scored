@@ -45,6 +45,7 @@ export function useTeacherSettings(uid: string | undefined) {
           zoomAccountId: data.zoomAccountId,
           zoomClientId: data.zoomClientId,
           zoomClientSecret: data.zoomClientSecret,
+          presentationPresets: data.presentationPresets ?? [],
           updatedAt: data.updatedAt ?? Date.now(),
         });
       })
@@ -52,6 +53,7 @@ export function useTeacherSettings(uid: string | undefined) {
         setSettings({
           userId: uid,
           features: { ...DEFAULT_FEATURES },
+          presentationPresets: [],
           updatedAt: Date.now(),
         });
         if (isFirebasePermissionError(err)) {
@@ -92,13 +94,17 @@ export function useTeacherSettings(uid: string | undefined) {
     async (updates: Partial<Omit<TeacherSettings, "userId">>) => {
       if (!uid) return;
       const payload: TeacherSettings = {
-        ...settings,
+        ...(settings ?? {}),
         userId: uid,
         features: settings?.features ?? DEFAULT_FEATURES,
         updatedAt: Date.now(),
         ...updates,
       };
-      await updateTeacherSettingsFn(payload as unknown as Record<string, unknown>);
+      const toSend = { ...payload } as Record<string, unknown>;
+      if (toSend.zoomClientSecret === "••••••••") {
+        delete toSend.zoomClientSecret;
+      }
+      await updateTeacherSettingsFn(toSend);
       setSettings((prev) => (prev ? { ...prev, ...payload } : payload));
     },
     [uid, settings]
@@ -117,6 +123,7 @@ export function useTeacherSettings(uid: string | undefined) {
       zoomAccountId: data.zoomAccountId,
       zoomClientId: data.zoomClientId,
       zoomClientSecret: data.zoomClientSecret,
+      presentationPresets: data.presentationPresets ?? [],
       updatedAt: data.updatedAt ?? Date.now(),
     });
   }, [uid]);

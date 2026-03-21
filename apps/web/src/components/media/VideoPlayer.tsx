@@ -5,9 +5,11 @@ import { resolveMediaUrl } from "../../utils/mediaResolver";
 interface VideoPlayerProps {
   mediaRef: MediaReference;
   className?: string;
+  /** Grow to fill parent (presenter split view) */
+  fill?: boolean;
 }
 
-export function VideoPlayer({ mediaRef, className }: VideoPlayerProps) {
+export function VideoPlayer({ mediaRef, className, fill = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +47,16 @@ export function VideoPlayer({ mediaRef, className }: VideoPlayerProps) {
   if (!src) return <p>Loading video…</p>;
 
   return (
-    <div className={className}>
+    <div
+      className={`${className ?? ""} ${fill ? "flex min-h-0 min-w-0 flex-1 flex-col" : ""}`.trim()}
+    >
       {mediaRef.label && <p style={{ marginBottom: "0.5rem" }}>{mediaRef.label}</p>}
       <video
         ref={videoRef}
         src={src}
         controls
-        style={{ width: "100%", maxWidth: 640 }}
+        className={fill ? "max-h-full w-full flex-1 object-contain" : undefined}
+        style={fill ? undefined : { width: "100%", maxWidth: 640 }}
       />
     </div>
   );

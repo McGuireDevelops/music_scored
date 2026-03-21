@@ -36,6 +36,18 @@ export const getTeacherSettings = onCall(async (request) => {
   const snap = await admin.firestore().doc(`teacherSettings/${uid}`).get();
   if (snap.exists) {
     const d = snap.data()!;
+    const rawPresets = d.presentationPresets;
+    const presentationPresets = Array.isArray(rawPresets)
+      ? rawPresets.filter(
+          (p: unknown) =>
+            p &&
+            typeof p === "object" &&
+            typeof (p as { id?: string }).id === "string" &&
+            typeof (p as { name?: string }).name === "string" &&
+            typeof (p as { layout?: string }).layout === "string" &&
+            Array.isArray((p as { slots?: unknown }).slots)
+        )
+      : [];
     return {
       userId: d.userId ?? uid,
       features: { ...DEFAULT_FEATURES, ...d.features },
@@ -44,6 +56,7 @@ export const getTeacherSettings = onCall(async (request) => {
       zoomAccountId: d.zoomAccountId,
       zoomClientId: d.zoomClientId,
       zoomClientSecret: d.zoomClientSecret ? "••••••••" : undefined,
+      presentationPresets,
       updatedAt: d.updatedAt ?? Date.now(),
     };
   }
@@ -55,6 +68,7 @@ export const getTeacherSettings = onCall(async (request) => {
     zoomAccountId: undefined,
     zoomClientId: undefined,
     zoomClientSecret: undefined,
+    presentationPresets: [],
     updatedAt: Date.now(),
   };
 });

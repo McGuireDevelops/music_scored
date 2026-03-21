@@ -85,6 +85,27 @@ export interface TeacherFeatureFlags {
   officeHours?: boolean;
 }
 
+/** Teacher presenter: video+score side-by-side, stacked, or two score panes */
+export type PresentationLayoutMode =
+  | "video_score_lr"
+  | "video_score_tb"
+  | "dual_score";
+
+export interface PresentationPresetSlot {
+  /** Index into the lesson `mediaRefs` array; use -1 for an empty slot */
+  mediaIndex: number;
+  /** 1-based PDF page override for score PDFs (presenter / preset only if not on MediaReference) */
+  pdfPage?: number;
+}
+
+export interface PresentationPreset {
+  id: string;
+  name: string;
+  layout: PresentationLayoutMode;
+  /** Exactly two slots (left/top and right/bottom depending on layout) */
+  slots: PresentationPresetSlot[];
+}
+
 export interface TeacherSettings {
   userId: string;
   features: TeacherFeatureFlags;
@@ -93,5 +114,7 @@ export interface TeacherSettings {
   zoomAccountId?: string;
   zoomClientId?: string;
   zoomClientSecret?: string;
+  /** Saved presenter layouts (capped in UI, e.g. 12) */
+  presentationPresets?: PresentationPreset[];
   updatedAt: number;
 }

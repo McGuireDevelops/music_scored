@@ -26,6 +26,7 @@
 | `lessons/{id}/lessonVersions` | version, title, content, summary, mediaRefs, timestamp | Version history when teacher saves as new version |
 | `lessonPlacements` | moduleId, classId, order, linkType, lessonId?, sourceLessonId?, sourceClassId? | Attached/cloned lessons; linkType: owned, attached, cloned |
 | `liveLessons` | classId, ownerId, title, scheduledAt, duration?, cohortIds? | Scheduled live |
+| `liveLessons/{id}/teacherPlanItems` | order, title, lessonId?, externalUrl?, notes? | Teacher-only session running order for teach mode; not visible to students |
 | `assignments` | classId, moduleId, lessonId?, ownerId, title, brief, deadline?, rubricId? | Per module; optional lessonId for lesson-based task |
 | `assignments/{id}/submissions` | userId, mediaRefs?, decisionLog?, submittedAt | One per student |
 | `rubrics` | ownerId, name, axes[], version, editHistory[] | Teacher-defined |

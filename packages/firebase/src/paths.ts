@@ -38,6 +38,7 @@ export const SUBCOLLECTIONS = {
   editHistory: "editHistory",
   items: "items",
   playlistItemProgress: "playlistItemProgress",
+  teacherPlanItems: "teacherPlanItems",
 } as const;
 
 /** Path helper: users/{uid} */
@@ -103,4 +104,9 @@ export function playlistItemPath(playlistId: string, itemId: string): string {
 /** Path helper: users/{userId}/playlistItemProgress/{docId} */
 export function userPlaylistProgressPath(userId: string, docId: string): string {
   return `${userPath(userId)}/${SUBCOLLECTIONS.playlistItemProgress}/${docId}`;
+}
+
+/** Path helper: liveLessons/{liveLessonId}/teacherPlanItems/{itemId} */
+export function teacherPlanItemPath(liveLessonId: string, itemId: string): string {
+  return `${COLLECTIONS.liveLessons}/${liveLessonId}/${SUBCOLLECTIONS.teacherPlanItems}/${itemId}`;
 }

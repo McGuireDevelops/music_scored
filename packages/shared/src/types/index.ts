@@ -7,3 +7,4 @@ export * from "./misc.js";
 export * from "./playlist.js";
 export * from "./certificate.js";
 export * from "./booking.js";
+export * from "./teacher-plan.js";

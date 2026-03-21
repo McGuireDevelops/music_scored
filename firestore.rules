@@ -76,6 +76,16 @@ service cloud.firestore {
         && hasStudentGrant(classId) && hasFulfilledMandatoryRequirements(classId);
     }
 
+    // Live lesson teaching plan: class owner or live-lesson creator; 1 get on liveLessons/{id}.
+    function canAccessLiveLessonTeacherPlan(lessonId) {
+      let ll = get(/databases/$(database)/documents/liveLessons/$(lessonId));
+      return request.auth != null && ll.exists && (
+        isAdmin()
+        || ll.data.ownerId == request.auth.uid
+        || ownsClass(ll.data.classId)
+      );
+    }
+
     // Users: own doc; admin read/update all; teachers can read (for roster/student list)
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin() || isTeacher());
@@ -200,6 +210,11 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (
         resource.data.ownerId == request.auth.uid || isAdmin()
       );
+
+      // Teacher-only session plan (running order); students do not read this subcollection.
+      match /teacherPlanItems/{itemId} {
+        allow read, create, update, delete: if canAccessLiveLessonTeacherPlan(lessonId);
+      }
     }
 
     // Assignments

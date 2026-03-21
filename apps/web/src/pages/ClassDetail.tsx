@@ -18,6 +18,7 @@ import { CourseBuilder } from "../components/CourseBuilder";
 import type { LiveLessonStatus, RecordingShareTarget, ZoomRecording } from "@learning-scores/shared";
 import type { Class } from "../hooks/useTeacherClasses";
 import { ReviewDashboard } from "../components/live/ReviewDashboard";
+import { TeacherPlanEditor } from "../components/live/TeacherPlanEditor";
 import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
 
 const VALID_TABS = [
@@ -574,6 +575,7 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
   const [reviewLessonId, setReviewLessonId] = useState<string | null>(null);
   const [shareModalLessonId, setShareModalLessonId] = useState<string | null>(null);
+  const [planExpandedLessonId, setPlanExpandedLessonId] = useState<string | null>(null);
 
   const sortedLessons = [...lessons].sort((a, b) => b.scheduledAt - a.scheduledAt);
   const reviewLesson = reviewLessonId
@@ -633,17 +635,25 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
 
   return (
     <ContentPane title="Live Classes">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">
           Schedule and manage live Zoom classes for this course.
         </p>
-        <button
-          type="button"
-          onClick={() => setShowForm(!showForm)}
-          className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          {showForm ? "Cancel" : "Schedule class"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={`/teacher/class/${classId}/present`}
+            className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary no-underline transition-colors hover:bg-primary/10"
+          >
+            Open presenter
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowForm(!showForm)}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            {showForm ? "Cancel" : "Schedule class"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -768,6 +778,27 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {(lesson.status === "scheduled" || lesson.status === "live") && (
+                    <>
+                      <Link
+                        to={`/teacher/class/${classId}/live/${lesson.id}/teach`}
+                        className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white no-underline transition-colors hover:bg-slate-900"
+                      >
+                        Teach mode
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPlanExpandedLessonId((id) =>
+                            id === lesson.id ? null : lesson.id
+                          )
+                        }
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        {planExpandedLessonId === lesson.id ? "Hide plan" : "Teaching plan"}
+                      </button>
+                    </>
+                  )}
                   {lesson.status === "ended" && lesson.recording && (
                     <button
                       type="button"
@@ -836,6 +867,9 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                   )}
                 </div>
               </div>
+              {planExpandedLessonId === lesson.id && (
+                <TeacherPlanEditor liveLessonId={lesson.id} classId={classId} />
+              )}
             </div>
           ))}
         </div>

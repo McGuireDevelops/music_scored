@@ -19,7 +19,11 @@
     "overrides": {
       "rollup": ">=4.59.0",
       "esbuild": ">=0.25.0",
-      "undici": ">=7.24.0"
+      "undici": ">=7.24.0",
+      "@typescript-eslint/typescript-estree>minimatch": ">=9.0.7",
+      "@tootallnate/once": ">=3.0.1",
+      "flatted": ">=3.4.2",
+      "fast-xml-parser": ">=5.5.8"
     }
   }
 }

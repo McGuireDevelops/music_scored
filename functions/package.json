@@ -23,11 +23,5 @@
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
     "typescript": "^5.3.3"
-  },
-  "overrides": {
-    "minimatch": ">=9.0.7",
-    "@tootallnate/once": ">=3.0.1",
-    "flatted": ">=3.4.2",
-    "fast-xml-parser": ">=5.5.8"
   }
 }

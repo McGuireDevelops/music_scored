@@ -25,6 +25,8 @@
   },
   "overrides": {
     "minimatch": ">=9.0.7",
-    "@tootallnate/once": ">=3.0.1"
+    "@tootallnate/once": ">=3.0.1",
+    "flatted": ">=3.4.2",
+    "fast-xml-parser": ">=5.5.8"
   }
 }

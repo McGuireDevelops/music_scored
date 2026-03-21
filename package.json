@@ -10,6 +10,12 @@
     "dev:mobile": "pnpm --filter mobile run start",
     "lint": "pnpm -r run lint"
   },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.3.3"
+  },
   "engines": {
     "node": "22"
   },

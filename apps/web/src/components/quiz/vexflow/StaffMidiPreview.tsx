@@ -47,10 +47,7 @@ export function StaffMidiPreview({
         })
     );
 
-    const voice = new Voice({
-      num_beats: tickables.length,
-      beat_value: 4,
-    });
+    const voice = new Voice(`${tickables.length}/4`);
     voice.addTickables(tickables);
 
     new Formatter().joinVoices([voice]).formatToStave([voice], stave);

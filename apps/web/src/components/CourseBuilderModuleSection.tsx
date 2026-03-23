@@ -37,6 +37,7 @@ interface CourseBuilderModuleSectionProps {
   moduleIndex: number;
   classId: string;
   userId: string;
+  allModules: { id: string; name: string }[];
   assignments: AssignmentWithId[];
   quizzes: QuizWithId[];
   onDeleteModule: (id: string) => Promise<void>;
@@ -55,6 +56,7 @@ interface CourseBuilderModuleSectionProps {
     ownerId: string;
     title: string;
   }, ownerId: string) => Promise<void>;
+  assignQuizToModule: (quizId: string, moduleId: string) => Promise<void>;
   onLessonCreated: () => void;
 }
 
@@ -63,12 +65,14 @@ export function CourseBuilderModuleSection({
   moduleIndex,
   classId,
   userId,
+  allModules,
   assignments,
   quizzes,
   onDeleteModule,
   onUpdateModule,
   createAssignment,
   createQuiz,
+  assignQuizToModule,
   onLessonCreated,
 }: CourseBuilderModuleSectionProps) {
   const [expanded, setExpanded] = useState(true);
@@ -94,6 +98,23 @@ export function CourseBuilderModuleSection({
 
   const moduleAssignments = assignments.filter((a) => a.moduleId === mod.id);
   const moduleQuizzes = quizzes.filter((q) => q.moduleId === mod.id);
+  const moduleNameById = new Map(allModules.map((m) => [m.id, m.name] as const));
+  const assignableQuizzes = quizzes
+    .filter((q) => q.ownerId === userId && q.moduleId !== mod.id)
+    .sort((a, b) => a.title.localeCompare(b.title));
+  const assignableQuizOptions = assignableQuizzes.map((q) => {
+    let where: string;
+    if (!q.moduleId) {
+      where = "Course library";
+    } else {
+      const name = moduleNameById.get(q.moduleId);
+      where = name ? `Module: ${name}` : "Another module";
+    }
+    if (q.lessonId) {
+      where = `${where} · lesson quiz`;
+    }
+    return { id: q.id, label: `${q.title} (${where})` };
+  });
   const documentRefs = mod.documentRefs ?? [];
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -185,6 +206,11 @@ export function CourseBuilderModuleSection({
     ownerId: string
   ) => {
     await createQuiz(data, ownerId);
+    setActiveForm(null);
+  };
+
+  const handleAssignExistingQuiz = async (quizId: string) => {
+    await assignQuizToModule(quizId, mod.id);
     setActiveForm(null);
   };
 
@@ -384,7 +410,9 @@ export function CourseBuilderModuleSection({
                 classId={classId}
                 moduleId={mod.id}
                 userId={userId}
+                assignableQuizOptions={assignableQuizOptions}
                 onSave={handleSaveQuiz}
+                onAssignExisting={handleAssignExistingQuiz}
                 onCancel={() => setActiveForm(null)}
               />
             </div>

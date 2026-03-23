@@ -46,11 +46,11 @@ export function CourseBuilder({
     quizzes,
     loading: quizzesLoading,
     createQuiz,
+    assignQuizToModule,
   } = useClassQuizzes(classId);
 
   const {
     lessons: allLessons,
-    loading: allLessonsLoading,
     refetch: refetchLessons,
   } = useClassLessons(classId);
 
@@ -201,7 +201,14 @@ export function CourseBuilder({
     [createQuiz]
   );
 
-  const loading = modulesLoading || assignmentsLoading || quizzesLoading || allLessonsLoading;
+  const handleAssignQuizToModule = useCallback(
+    async (quizId: string, moduleId: string) => {
+      await assignQuizToModule(quizId, moduleId);
+    },
+    [assignQuizToModule]
+  );
+
+  const loading = modulesLoading || assignmentsLoading || quizzesLoading;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -431,12 +438,14 @@ export function CourseBuilder({
               moduleIndex={index}
               classId={classId}
               userId={userId}
+              allModules={modules.map((m) => ({ id: m.id, name: m.name }))}
               assignments={assignments}
               quizzes={quizzes}
               onDeleteModule={deleteModule}
               onUpdateModule={updateModule}
               createAssignment={handleCreateAssignment}
               createQuiz={handleCreateQuiz}
+              assignQuizToModule={handleAssignQuizToModule}
               onLessonCreated={refetchLessons}
             />
           ))}

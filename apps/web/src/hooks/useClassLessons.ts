@@ -10,7 +10,6 @@ export function useClassLessons(classId: string | undefined) {
 
   const refetch = useCallback(async () => {
     if (!classId) return;
-    setLoading(true);
     setError(null);
     try {
       const q = query(
@@ -26,8 +25,6 @@ export function useClassLessons(classId: string | undefined) {
       setLessons(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load lessons");
-    } finally {
-      setLoading(false);
     }
   }, [classId]);
 
@@ -37,7 +34,8 @@ export function useClassLessons(classId: string | undefined) {
       setLoading(false);
       return;
     }
-    refetch();
+    setLoading(true);
+    refetch().finally(() => setLoading(false));
   }, [classId, refetch]);
 
   return { lessons, loading, error, refetch };

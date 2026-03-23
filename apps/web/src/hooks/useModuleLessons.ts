@@ -77,18 +77,9 @@ export function useModuleLessons(
   ) => {
     if (!classId || !moduleId) throw new Error("No class/module selected");
     const payload = stripUndefined({ ...data, classId, moduleId, ownerId });
-    await addDoc(collection(db, "lessons"), payload);
-    const q = query(
-      collection(db, "lessons"),
-      where("moduleId", "==", moduleId)
-    );
-    const snap = await getDocs(q);
-    const list: LessonWithId[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as LessonWithId[];
-    list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    setLessons(list);
+    const ref = await addDoc(collection(db, "lessons"), payload);
+    const newLesson: LessonWithId = { id: ref.id, ...payload } as LessonWithId;
+    setLessons((prev) => [...prev, newLesson].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
   };
 
   const updateLesson = async (

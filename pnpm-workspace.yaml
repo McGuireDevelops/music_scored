@@ -1,4 +1,5 @@
+# functions/ is excluded: it uses file:./_packages/shared (vendored by
+# scripts/prepare-functions-deploy.mjs for Firebase) and is installed with npm there.
 packages:
   - "apps/*"
   - "packages/*"
-  - "functions"

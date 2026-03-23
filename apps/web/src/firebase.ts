@@ -15,6 +15,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+const FUNCTIONS_REGION =
+  (import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION as string | undefined) ?? "us-central1";
+
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
@@ -33,13 +36,13 @@ if (getApps().length === 0) {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
-  functions = getFunctions(app);
+  functions = getFunctions(app, FUNCTIONS_REGION);
 } else {
   app = getApps()[0] as FirebaseApp;
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
-  functions = getFunctions(app);
+  functions = getFunctions(app, FUNCTIONS_REGION);
 }
 
 export { app, auth, db, storage, functions, httpsCallable };

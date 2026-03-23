@@ -37,7 +37,12 @@ import { shareRecording } from "./zoom/shareRecording";
 import { createBooking } from "./booking/createBooking";
 import { cancelBooking } from "./booking/cancelBooking";
 
-setGlobalOptions({ maxInstances: 10 });
+// invoker: "public" so browser OPTIONS preflight succeeds (no auth header). Handlers still require Firebase Auth.
+setGlobalOptions({
+  maxInstances: 10,
+  region: "us-central1",
+  invoker: "public",
+});
 
 admin.initializeApp();
 

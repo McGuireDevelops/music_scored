@@ -76,66 +76,72 @@ Output ONLY the JSON array, no markdown, no commentary. At most 20 items.`;
   return stripJsonFence(text);
 }
 
-export const generateQuizQuestions = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Must be signed in");
+export const generateQuizQuestions = onCall(
+  {
+    cors: true,
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in");
+    }
+    const uid = request.auth.uid;
+    const userDoc = await admin.firestore().doc(`users/${uid}`).get();
+    const role = userDoc.data()?.role;
+    if (role !== "teacher" && role !== "admin") {
+      throw new HttpsError("permission-denied", "Only teachers can generate quiz questions");
+    }
+
+    const data = validateInput(
+      generateQuizQuestionsSchema,
+      request.data
+    ) as GenerateQuizQuestionsInput;
+
+    await checkRateLimit("generateQuizQuestions", uid);
+
+    const quizSnap = await admin.firestore().doc(`quizzes/${data.quizId}`).get();
+    if (!quizSnap.exists) {
+      throw new HttpsError("not-found", "Quiz not found");
+    }
+    const quiz = quizSnap.data()!;
+    if (quiz.ownerId !== uid && role !== "admin") {
+      throw new HttpsError("permission-denied", "You can only edit your own quizzes");
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await generateRawJson(data.prompt));
+    } catch (e) {
+      console.error("generateQuizQuestions parse error", e);
+      throw new HttpsError("internal", "AI returned invalid JSON");
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new HttpsError("internal", "AI response must be a JSON array");
+    }
+
+    const out: Array<{ type: string; payload: Record<string, unknown>; points: number }> = [];
+
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const rec = item as Record<string, unknown>;
+      if (rec.type !== "chordSpelling") continue;
+      const payload = rec.payload as Record<string, unknown> | undefined;
+      if (!payload) continue;
+      const key = String(payload.key ?? "").trim();
+      const chordLabel = String(payload.chordLabel ?? "").trim();
+      const points = Number(rec.points) || 1;
+      const normalized = assertChordSpelling(key, chordLabel, points);
+      if (normalized) out.push(normalized);
+    }
+
+    if (out.length === 0) {
+      throw new HttpsError(
+        "invalid-argument",
+        "No valid chord-spelling questions could be built from the AI response. Try a more specific prompt."
+      );
+    }
+
+    return { questions: out };
   }
-  const uid = request.auth.uid;
-  const userDoc = await admin.firestore().doc(`users/${uid}`).get();
-  const role = userDoc.data()?.role;
-  if (role !== "teacher" && role !== "admin") {
-    throw new HttpsError("permission-denied", "Only teachers can generate quiz questions");
-  }
-
-  const data = validateInput(
-    generateQuizQuestionsSchema,
-    request.data
-  ) as GenerateQuizQuestionsInput;
-
-  await checkRateLimit("generateQuizQuestions", uid);
-
-  const quizSnap = await admin.firestore().doc(`quizzes/${data.quizId}`).get();
-  if (!quizSnap.exists) {
-    throw new HttpsError("not-found", "Quiz not found");
-  }
-  const quiz = quizSnap.data()!;
-  if (quiz.ownerId !== uid && role !== "admin") {
-    throw new HttpsError("permission-denied", "You can only edit your own quizzes");
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await generateRawJson(data.prompt));
-  } catch (e) {
-    console.error("generateQuizQuestions parse error", e);
-    throw new HttpsError("internal", "AI returned invalid JSON");
-  }
-
-  if (!Array.isArray(parsed)) {
-    throw new HttpsError("internal", "AI response must be a JSON array");
-  }
-
-  const out: Array<{ type: string; payload: Record<string, unknown>; points: number }> = [];
-
-  for (const item of parsed) {
-    if (!item || typeof item !== "object") continue;
-    const rec = item as Record<string, unknown>;
-    if (rec.type !== "chordSpelling") continue;
-    const payload = rec.payload as Record<string, unknown> | undefined;
-    if (!payload) continue;
-    const key = String(payload.key ?? "").trim();
-    const chordLabel = String(payload.chordLabel ?? "").trim();
-    const points = Number(rec.points) || 1;
-    const normalized = assertChordSpelling(key, chordLabel, points);
-    if (normalized) out.push(normalized);
-  }
-
-  if (out.length === 0) {
-    throw new HttpsError(
-      "invalid-argument",
-      "No valid chord-spelling questions could be built from the AI response. Try a more specific prompt."
-    );
-  }
-
-  return { questions: out };
-});
+);

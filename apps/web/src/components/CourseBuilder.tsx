@@ -130,7 +130,10 @@ export function CourseBuilder({
 
   const handleCreateModule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newModuleName.trim()) return;
+    if (!newModuleName.trim()) {
+      setModuleError("Enter a module name to add it.");
+      return;
+    }
     setCreatingModule(true);
     setModuleError("");
     try {
@@ -447,19 +450,30 @@ export function CourseBuilder({
               type="text"
               placeholder="New module name..."
               value={newModuleName}
-              onChange={(e) => setNewModuleName(e.target.value)}
+              onChange={(e) => {
+                setNewModuleName(e.target.value);
+                if (moduleError) setModuleError("");
+              }}
+              aria-invalid={Boolean(moduleError)}
+              aria-describedby={moduleError ? "module-add-error" : undefined}
               className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
             />
             <button
               type="submit"
-              disabled={creatingModule || !newModuleName.trim()}
+              disabled={creatingModule}
               className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
             >
               {creatingModule ? "Adding..." : "+ Add module"}
             </button>
           </form>
           {moduleError && (
-            <p className="mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{moduleError}</p>
+            <p
+              id="module-add-error"
+              role="alert"
+              className="mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700"
+            >
+              {moduleError}
+            </p>
           )}
 
           {modules.length === 0 && !loading && (

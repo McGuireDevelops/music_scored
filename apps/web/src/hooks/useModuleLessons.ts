@@ -38,12 +38,18 @@ export function useModuleLessons(
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
     const q = query(
       collection(db, "lessons"),
       where("moduleId", "==", moduleId)
     );
     getDocs(q)
       .then((snap) => {
+        if (cancelled) return;
         const list: LessonWithId[] = snap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -51,10 +57,18 @@ export function useModuleLessons(
         list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         setLessons(list);
       })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load lessons")
-      )
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load lessons");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [classId, moduleId]);
 
   const createLesson = async (
@@ -63,11 +77,18 @@ export function useModuleLessons(
   ) => {
     if (!classId || !moduleId) throw new Error("No class/module selected");
     const payload = stripUndefined({ ...data, classId, moduleId, ownerId });
-    const ref = await addDoc(collection(db, "lessons"), payload);
-    setLessons((prev) => [
-      ...prev,
-      { id: ref.id, ...data, classId, moduleId, ownerId } as LessonWithId,
-    ]);
+    await addDoc(collection(db, "lessons"), payload);
+    const q = query(
+      collection(db, "lessons"),
+      where("moduleId", "==", moduleId)
+    );
+    const snap = await getDocs(q);
+    const list: LessonWithId[] = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as LessonWithId[];
+    list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    setLessons(list);
   };
 
   const updateLesson = async (

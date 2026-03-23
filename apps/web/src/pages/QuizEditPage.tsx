@@ -1,5 +1,19 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useQuizQuestions, useQuiz } from "../hooks/useQuizzes";
 import { useClassModules } from "../hooks/useClassModules";
@@ -11,6 +25,7 @@ import {
   QUESTION_TYPES,
 } from "../components/quiz/QuizTeacherQuestionEditor";
 import { QuizGenerateModal } from "../components/quiz/QuizGenerateModal";
+import { SortableQuizQuestionItem } from "../components/quiz/SortableQuizQuestionItem";
 import { summarizeQuestion } from "../components/quiz/questionPayloadDefaults";
 
 type QuizAttachLevel = "course" | "module" | "lesson";
@@ -47,9 +62,28 @@ export default function QuizEditPage() {
     updateQuestion,
     deleteQuestion,
     refetch,
+    reorderQuestions,
   } = useQuizQuestions(quizId, { forTeacher: true });
 
   const loading = quizLoading || questionsLoading;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const sortableLocked = Boolean(editingQuestion || addingNew);
+
+  const handleQuestionDragEnd = (event: DragEndEvent) => {
+    if (sortableLocked) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = questions.findIndex((q) => q.id === active.id);
+    const newIndex = questions.findIndex((q) => q.id === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      void reorderQuestions(oldIndex, newIndex).catch(() => void refetch());
+    }
+  };
 
   const handleAttachLevelChange = (level: QuizAttachLevel) => {
     if (level === "course") {
@@ -237,49 +271,38 @@ export default function QuizEditPage() {
                 </div>
               )}
             </div>
-            <div className="space-y-3">
-              {questions.map((q, idx) => (
-                <div
-                  key={q.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
-                >
-                  <div>
-                    <span className="font-medium text-gray-900">
-                      {idx + 1}. {questionTypeLabel(q.type)}
-                    </span>
-                    <p className="mt-1 text-sm text-gray-600">{summarizeQuestion(q)}</p>
-                    {q.mediaRef && (
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        Media: {q.mediaRef.type} — {q.mediaRef.resourceId.split("/").pop()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleQuestionDragEnd}
+            >
+              <SortableContext
+                items={questions.map((q) => q.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {questions.map((q, idx) => (
+                    <SortableQuizQuestionItem
+                      key={q.id}
+                      question={q}
+                      index={idx}
+                      disabled={sortableLocked}
+                      typeLabel={questionTypeLabel(q.type)}
+                      summary={summarizeQuestion(q)}
+                      onEdit={() => {
                         setAddingNew(false);
                         setEditingQuestion(q);
                       }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
+                      onDelete={() => {
                         setEditingQuestion(null);
                         setAddingNew(false);
-                        deleteQuestion(q.id);
+                        void deleteQuestion(q.id);
                       }}
-                      className="text-sm text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
             {questions.length === 0 && !addingNew && (
               <p className="text-gray-600">
                 No questions yet. Add one to get started.

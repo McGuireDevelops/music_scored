@@ -125,6 +125,7 @@ export const quizQuestionSchema = z.object({
   payload: z.record(z.unknown()), // relaxed for type-specific payloads
   mediaRef: mediaReferenceSchema.optional(),
   points: z.number().optional(),
+  order: z.number().int().optional(),
 });
 
 export const quizAttemptAnswerSchema = z.object({

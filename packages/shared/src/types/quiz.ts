@@ -119,6 +119,8 @@ export interface QuizQuestion {
   payload: QuizQuestionPayload;
   mediaRef?: MediaReference;
   points?: number;
+  /** Display order within the quiz (0-based). Omitted on legacy documents until reordered. */
+  order?: number;
 }
 
 export interface QuizAnswerRomanNumeral {

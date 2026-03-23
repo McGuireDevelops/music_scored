@@ -1,4 +1,5 @@
 node_modules/
+functions/_packages/
 dist/
 lib/
 build/

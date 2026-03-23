@@ -143,8 +143,8 @@ importers:
         specifier: ^0.21.0
         version: 0.21.0
       '@learning-scores/shared':
-        specifier: workspace:*
-        version: link:../packages/shared
+        specifier: file:./_packages/shared
+        version: file:functions/_packages/shared
       firebase-admin:
         specifier: ^12.0.0
         version: 12.7.0
@@ -1346,6 +1346,9 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@learning-scores/shared@file:functions/_packages/shared':
+    resolution: {directory: functions/_packages/shared, type: directory}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -6090,6 +6093,10 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2':
     optional: true
+
+  '@learning-scores/shared@file:functions/_packages/shared':
+    dependencies:
+      zod: 3.25.76
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:

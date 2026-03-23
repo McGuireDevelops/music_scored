@@ -11,6 +11,7 @@ import {
   deleteDoc,
   setDoc,
   deleteField,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Quiz, QuizQuestion, QuizAttempt } from "@learning-scores/shared";
@@ -124,6 +125,18 @@ export function useQuiz(quizId: string | undefined) {
 
 export type QuizQuestionWithId = QuizQuestion & { id: string };
 
+/** Stable ordering: explicit `order` first, then document id for legacy rows. */
+export function sortQuizQuestionsByOrder<T extends { id: string; order?: number }>(
+  list: T[]
+): T[] {
+  return [...list].sort((a, b) => {
+    const oa = a.order ?? 0;
+    const ob = b.order ?? 0;
+    if (oa !== ob) return oa - ob;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export interface UseQuizQuestionsOptions {
   /** When true, strip correct answers (for students) */
   forStudent?: boolean;
@@ -173,7 +186,7 @@ export function useQuizQuestions(
       );
       list = merged;
     }
-    return list;
+    return sortQuizQuestionsByOrder(list);
   };
 
   const refetch = async () => {
@@ -202,8 +215,15 @@ export function useQuizQuestions(
     const sanitized = sanitizePayloadForStudent(payload, rest.type);
     const answerKeyData = extractAnswerKey(payload, rest.type);
 
+    const ordered = sortQuizQuestionsByOrder(questions);
+    const nextOrder =
+      ordered.length === 0
+        ? 0
+        : Math.max(...ordered.map((q) => q.order ?? 0)) + 1;
+
     const ref = await addDoc(collection(db, "quizzes", quizId, "questions"), {
       ...rest,
+      order: nextOrder,
       payload: sanitized,
     });
 
@@ -217,10 +237,12 @@ export function useQuizQuestions(
     const displayPayload = forTeacher
       ? mergeAnswerKeyIntoPayload(sanitized, answerKeyData)
       : sanitized;
-    setQuestions((prev) => [
-      ...prev,
-      { id: ref.id, ...rest, payload: displayPayload } as QuizQuestionWithId,
-    ]);
+    setQuestions((prev) =>
+      sortQuizQuestionsByOrder([
+        ...prev,
+        { id: ref.id, ...rest, order: nextOrder, payload: displayPayload } as QuizQuestionWithId,
+      ])
+    );
   };
 
   const updateQuestion = async (
@@ -292,7 +314,21 @@ export function useQuizQuestions(
     if (!quizId) throw new Error("No quiz");
     await deleteDoc(doc(db, "quizzes", quizId, "questions", questionId));
     await deleteDoc(doc(db, "quizzes", quizId, "answerKey", questionId));
-    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setQuestions((prev) => sortQuizQuestionsByOrder(prev.filter((q) => q.id !== questionId)));
+  };
+
+  const reorderQuestions = async (fromIndex: number, toIndex: number) => {
+    if (!quizId || fromIndex === toIndex) return;
+    const sorted = sortQuizQuestionsByOrder(questions);
+    const reordered = [...sorted];
+    const [removed] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, removed!);
+    const batch = writeBatch(db);
+    reordered.forEach((q, i) => {
+      batch.update(doc(db, "quizzes", quizId, "questions", q.id), { order: i });
+    });
+    await batch.commit();
+    setQuestions(reordered.map((q, i) => ({ ...q, order: i })));
   };
 
   return {
@@ -302,6 +338,7 @@ export function useQuizQuestions(
     addQuestion,
     updateQuestion,
     deleteQuestion,
+    reorderQuestions,
   };
 }
 

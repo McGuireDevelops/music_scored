@@ -1,7 +1,20 @@
 {
-  "firestore": { "rules": "firestore.rules" },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "storage": { "rules": "storage.rules" },
-  "functions": [{ "source": "functions", "codebase": "default" }],
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "predeploy": [
+        "npm --prefix packages/shared run build",
+        "node scripts/prepare-functions-deploy.mjs",
+        "npm --prefix functions run build"
+      ]
+    }
+  ],
   "hosting": {
     "public": "apps/web/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],

@@ -3,7 +3,10 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
-import { computeQuestionPoints } from "@learning-scores/shared";
+import {
+  computeQuestionPoints,
+  decodeQuizAnswerKeyFromFirestore,
+} from "@learning-scores/shared";
 import { validateInput } from "../validation";
 import { submitQuizAttemptSchema } from "../validation/schemas";
 
@@ -109,7 +112,10 @@ export const submitQuizAttempt = onCall(
         .get();
       const answerKeyByQuestion = new Map<string, Record<string, unknown>>();
       for (const d of keySnap.docs) {
-        answerKeyByQuestion.set(d.id, d.data());
+        answerKeyByQuestion.set(
+          d.id,
+          decodeQuizAnswerKeyFromFirestore(d.data() as Record<string, unknown>)
+        );
       }
       const result = computeScoreFromAnswerKey(
         questions,

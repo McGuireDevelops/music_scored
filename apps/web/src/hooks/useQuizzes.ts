@@ -15,6 +15,10 @@ import {
 import { db } from "../firebase";
 import type { Quiz, QuizQuestion, QuizAttempt } from "@learning-scores/shared";
 import {
+  encodeQuizAnswerKeyForFirestore,
+  decodeQuizAnswerKeyFromFirestore,
+} from "@learning-scores/shared";
+import {
   sanitizePayloadForStudent,
   extractAnswerKey,
   mergeAnswerKeyIntoPayload,
@@ -154,7 +158,9 @@ export function useQuizQuestions(
             doc(db, "quizzes", quizId!, "answerKey", q.id)
           );
           const answerKey = keySnap.exists()
-            ? (keySnap.data() as Record<string, unknown>)
+            ? decodeQuizAnswerKeyFromFirestore(
+                keySnap.data() as Record<string, unknown>
+              )
             : null;
           return {
             ...q,
@@ -204,7 +210,7 @@ export function useQuizQuestions(
     if (answerKeyData) {
       await setDoc(
         doc(db, "quizzes", quizId, "answerKey", ref.id),
-        answerKeyData
+        encodeQuizAnswerKeyForFirestore(answerKeyData)
       );
     }
 
@@ -251,7 +257,7 @@ export function useQuizQuestions(
       if (answerKeyData) {
         await setDoc(
           doc(db, "quizzes", quizId, "answerKey", questionId),
-          answerKeyData
+          encodeQuizAnswerKeyForFirestore(answerKeyData)
         );
       } else {
         await deleteDoc(doc(db, "quizzes", quizId, "answerKey", questionId));

@@ -81,8 +81,12 @@ export function QuizGenerateModal({ quizId, onClose, onAdded, addQuestion }: Pro
       }
       onAdded();
       onClose();
-    } catch {
-      setError("Failed to add some questions.");
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "Failed to add some questions.";
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -122,8 +126,12 @@ export function QuizGenerateModal({ quizId, onClose, onAdded, addQuestion }: Pro
       }
       onAdded();
       onClose();
-    } catch {
-      setError("Failed to add some questions.");
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "Failed to add some questions.";
+      setError(msg);
     } finally {
       setBusy(false);
     }

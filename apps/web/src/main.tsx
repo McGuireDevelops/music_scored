@@ -34,6 +34,7 @@ import TeacherAssignmentsPage from "./pages/TeacherAssignmentsPage";
 import TeacherQuizzesPage from "./pages/TeacherQuizzesPage";
 import TeacherSettingsPage from "./pages/TeacherSettingsPage";
 import CurriculumBuilderPage from "./pages/CurriculumBuilder";
+import ProgramTimelinePage from "./pages/ProgramTimelinePage";
 import CalendarPage from "./pages/CalendarPage";
 import TeacherAvailabilityPage from "./pages/TeacherAvailabilityPage";
 import TeacherTeachModePage from "./pages/TeacherTeachModePage";
@@ -73,6 +74,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="teacher/settings" element={<TeacherSettingsPage />} />
               <Route path="teacher/availability" element={<TeacherAvailabilityPage />} />
               <Route path="teacher/curricula" element={<CurriculumBuilderPage />} />
+              <Route
+                path="teacher/class/:classId/program-timeline"
+                element={<ProgramTimelinePage />}
+              />
+              <Route
+                path="teacher/curriculum/:curriculumId/program-timeline"
+                element={<ProgramTimelinePage />}
+              />
               <Route path="teacher/library" element={<PortfolioPage />} />
               <Route path="teacher/class/:id" element={<ClassDetail />} />
               <Route

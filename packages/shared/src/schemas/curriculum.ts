@@ -149,6 +149,7 @@ export const liveLessonSchema = z.object({
   ownerId: z.string().min(1),
   title: z.string().min(1),
   scheduledAt: z.number(),
+  scheduledTimezone: z.string().min(1).optional(),
   duration: z.number().optional(),
   cohortIds: z.array(z.string()).optional(),
   topics: z.array(z.string()).optional(),

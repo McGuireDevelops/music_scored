@@ -23,6 +23,12 @@ import { TeacherClassQuestionQueue } from "../components/live/TeacherClassQuesti
 import { StudentClassQuestions } from "../components/live/StudentClassQuestions";
 import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
 import { StudentCourseContent } from "../components/student/StudentCourseContent";
+import {
+  formatUtcForDisplay,
+  formatUtcTimeLabel,
+  getViewerIanaTimezone,
+} from "../utils/timezone";
+import { parseDatetimeLocalInZone } from "../utils/zonedTime";
 
 const VALID_TABS = [
   "builder", "quizzes", "live", "roster", "reports", "playlists", "community", "portfolio",
@@ -139,6 +145,12 @@ export default function ClassDetail() {
                     className="text-sm font-medium text-primary no-underline hover:underline"
                   >
                     Certificate
+                  </Link>
+                  <Link
+                    to={`/teacher/class/${id}/program-timeline`}
+                    className="text-sm font-medium text-primary no-underline hover:underline"
+                  >
+                    Program timeline
                   </Link>
                 </div>
               )}
@@ -311,22 +323,6 @@ function QuizzesTab({ classId }: { classId: string }) {
       </Link>
     </ContentPane>
   );
-}
-
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function StatusBadge({ status }: { status?: LiveLessonStatus }) {
@@ -575,6 +571,9 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
   const [duration, setDuration] = useState("60");
   const [isTimeManaged, setIsTimeManaged] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -595,18 +594,32 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !scheduledAt) return;
+    const tz = scheduleTimezone.trim();
+    if (!tz) {
+      setCreateError("Please enter a valid IANA timezone (e.g. America/New_York).");
+      return;
+    }
+    const utcMs = parseDatetimeLocalInZone(scheduledAt, tz);
+    if (utcMs === null) {
+      setCreateError(
+        "That date and time is not valid in the selected timezone (for example, during a daylight saving gap). Try another time."
+      );
+      return;
+    }
     setCreating(true);
     setCreateError(null);
     try {
       await createLiveLesson({
         title: title.trim(),
-        scheduledAt: new Date(scheduledAt).getTime(),
+        scheduledAt: utcMs,
+        scheduledTimezone: tz,
         duration: parseInt(duration, 10) || 60,
         ownerId: userId,
         isTimeManaged,
       });
       setTitle("");
       setScheduledAt("");
+      setScheduleTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
       setDuration("60");
       setIsTimeManaged(false);
       setShowForm(false);
@@ -643,8 +656,15 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
     );
   }
 
+  const teacherViewerTz = getViewerIanaTimezone();
+
   return (
     <ContentPane title="Live Classes">
+      {teacherViewerTz && (
+        <p className="mb-4 text-xs text-gray-500">
+          Times shown in your timezone ({teacherViewerTz}).
+        </p>
+      )}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">
           Schedule and manage live Zoom classes for this course.
@@ -699,6 +719,9 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                 required
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Interpreted in the timezone below (not your device clock alone).
+              </p>
             </div>
             <div>
               <label htmlFor="live-duration" className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -714,6 +737,20 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
+          </div>
+          <div className="mb-4">
+            <label htmlFor="live-timezone" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Timezone (IANA)
+            </label>
+            <input
+              id="live-timezone"
+              type="text"
+              value={scheduleTimezone}
+              onChange={(e) => setScheduleTimezone(e.target.value)}
+              placeholder="e.g. America/New_York"
+              required
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
           <div className="mb-4">
             <label className="flex items-center gap-2.5 cursor-pointer">
@@ -775,9 +812,14 @@ function LiveClassesTab({ classId, userId }: { classId: string; userId: string }
                     )}
                   </div>
                   <p className="text-sm text-gray-600">
-                    {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                    {formatUtcForDisplay(lesson.scheduledAt)}
                     {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
                   </p>
+                  {lesson.scheduledTimezone && (
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Scheduled as local time in {lesson.scheduledTimezone}.
+                    </p>
+                  )}
                   {lesson.zoomJoinUrl && (
                     <p className="mt-1 text-xs text-gray-500">
                       Zoom ID: {lesson.zoomMeetingId}
@@ -933,6 +975,11 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
 
   return (
     <ContentPane title="Live Classes">
+      {viewerTz && (
+        <p className="mb-4 text-xs text-gray-500">
+          Times shown in your timezone ({viewerTz}).
+        </p>
+      )}
       {loading && <p className="text-gray-500">Loading&hellip;</p>}
 
       {!loading && liveLessons.length > 0 && (
@@ -948,7 +995,9 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                     <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
                     <StatusBadge status="live" />
                   </div>
-                  <p className="text-sm text-gray-600">Started at {formatTime(lesson.scheduledAt)}</p>
+                  <p className="text-sm text-gray-600">
+                    Started at {formatUtcTimeLabel(lesson.scheduledAt)}
+                  </p>
                 </div>
                 {lesson.zoomJoinUrl && (
                   <a
@@ -985,7 +1034,7 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                   <div>
                     <h4 className="font-semibold text-gray-900">{lesson.title}</h4>
                     <p className="text-sm text-gray-600">
-                      {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                      {formatUtcForDisplay(lesson.scheduledAt)}
                       {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
                     </p>
                   </div>
@@ -1020,7 +1069,7 @@ function StudentLiveClassesView({ classId }: { classId: string }) {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      {formatDate(lesson.scheduledAt)}
+                      {formatUtcForDisplay(lesson.scheduledAt)}
                       {lesson.duration != null && <span> &middot; {lesson.duration} min</span>}
                     </p>
                   </div>

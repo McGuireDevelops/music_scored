@@ -152,6 +152,8 @@ export interface LiveLesson {
   ownerId: string;
   title: string;
   scheduledAt: number; // UTC ms
+  /** IANA zone the teacher used when scheduling (audit / display helper). */
+  scheduledTimezone?: string;
   duration?: number; // minutes
   cohortIds?: string[];
   topics?: string[];

@@ -17,6 +17,7 @@ export interface LiveLessonWithId {
   ownerId: string;
   title: string;
   scheduledAt: number;
+  scheduledTimezone?: string;
   duration?: number;
   cohortIds?: string[];
   moduleId?: string;
@@ -58,6 +59,7 @@ export function useClassLiveLessons(classId: string | undefined) {
   const createLiveLesson = async (data: {
     title: string;
     scheduledAt: number;
+    scheduledTimezone?: string;
     duration?: number;
     cohortIds?: string[];
     moduleId?: string;

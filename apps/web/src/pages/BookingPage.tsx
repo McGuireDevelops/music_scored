@@ -7,139 +7,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { useStudentClasses } from "../hooks/useStudentClasses";
 import { useTeacherAvailability } from "../hooks/useTeacherAvailability";
 import { useBookings } from "../hooks/useBookings";
-import type { WeeklySlot, TeacherAvailability, Booking } from "@learning-scores/shared";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-interface ConcreteSlot {
-  startAt: number;
-  endAt: number;
-}
-
-function generateSlots(
-  avail: TeacherAvailability,
-  existingBookings: Booking[],
-  weeksAhead: number = 3
-): ConcreteSlot[] {
-  const now = Date.now();
-  const slots: ConcreteSlot[] = [];
-  const confirmedBookings = existingBookings.filter((b) => b.status === "confirmed");
-
-  for (let weekOffset = 0; weekOffset < weeksAhead; weekOffset++) {
-    for (const ws of avail.weeklySlots) {
-      const daySlots = getSlotsForDay(ws, avail, now, weekOffset);
-      slots.push(...daySlots);
-    }
-  }
-
-  // Filter out slots that overlap with existing bookings
-  return slots.filter((slot) => {
-    if (slot.startAt <= now) return false;
-    return !confirmedBookings.some(
-      (b) => b.startAt < slot.endAt && b.endAt > slot.startAt
-    );
-  });
-}
-
-function getSlotsForDay(
-  ws: WeeklySlot,
-  avail: TeacherAvailability,
-  now: number,
-  weekOffset: number
-): ConcreteSlot[] {
-  const result: ConcreteSlot[] = [];
-  const tz = avail.timezone;
-  const duration = avail.slotDurationMinutes;
-  const buffer = avail.bufferMinutes ?? 0;
-
-  // Find the next occurrence of this weekday
-  const today = new Date(now);
-  const todayInTz = new Date(
-    today.toLocaleString("en-US", { timeZone: tz })
-  );
-  const currentDay = todayInTz.getDay();
-  let daysUntil = ws.dayOfWeek - currentDay;
-  if (daysUntil < 0) daysUntil += 7;
-  daysUntil += weekOffset * 7;
-
-  const targetDate = new Date(todayInTz);
-  targetDate.setDate(targetDate.getDate() + daysUntil);
-
-  const [startH, startM] = ws.startTime.split(":").map(Number);
-  const [endH, endM] = ws.endTime.split(":").map(Number);
-  const windowStartMins = startH * 60 + startM;
-  const windowEndMins = endH * 60 + endM;
-
-  // Build a date string in the teacher's tz and convert to UTC
-  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
-
-  let currentMins = windowStartMins;
-  while (currentMins + duration <= windowEndMins) {
-    const h = String(Math.floor(currentMins / 60)).padStart(2, "0");
-    const m = String(currentMins % 60).padStart(2, "0");
-    const slotStart = new Date(`${dateStr}T${h}:${m}:00`);
-
-    // Approximate conversion from teacher tz to UTC
-    const utcStart = tzToUtc(dateStr, `${h}:${m}`, tz);
-    if (utcStart) {
-      result.push({
-        startAt: utcStart,
-        endAt: utcStart + duration * 60_000,
-      });
-    }
-
-    currentMins += duration + buffer;
-  }
-
-  return result;
-}
-
-function tzToUtc(dateStr: string, timeStr: string, tz: string): number | null {
-  try {
-    // Create a date in UTC and then figure out the offset
-    const naive = new Date(`${dateStr}T${timeStr}:00Z`);
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-    const utcInTz = formatter.format(naive);
-    // Parse the formatted date back
-    const parts = utcInTz.match(/(\d+)/g);
-    if (!parts || parts.length < 6) return null;
-    const [mo, da, yr, hr, mi] = parts.map(Number);
-    const tzDate = new Date(yr, mo - 1, da, hr, mi, 0);
-    const offset = tzDate.getTime() - naive.getTime();
-
-    // The actual UTC time is the local time minus the offset
-    const localDate = new Date(`${dateStr}T${timeStr}:00`);
-    return localDate.getTime() - offset;
-  } catch {
-    return null;
-  }
-}
+import type { Booking } from "@learning-scores/shared";
+import { generateSlots } from "../utils/bookingSlots";
+import {
+  formatUtcDateLabel,
+  formatUtcForDisplay,
+  formatUtcTimeLabel,
+  getViewerIanaTimezone,
+} from "../utils/timezone";
 
 // ---------------------------------------------------------------------------
 // Teacher card sub-component (loads its own availability)
@@ -188,7 +63,7 @@ function TeacherSlotPicker({
   // Group slots by date
   const slotsByDate = new Map<string, ConcreteSlot[]>();
   slots.forEach((slot) => {
-    const key = formatDate(slot.startAt);
+    const key = formatUtcDateLabel(slot.startAt);
     const existing = slotsByDate.get(key) ?? [];
     existing.push(slot);
     slotsByDate.set(key, existing);
@@ -239,7 +114,7 @@ function TeacherSlotPicker({
                           : "border-gray-300 bg-white text-gray-700 hover:border-primary hover:text-primary"
                       }`}
                     >
-                      {formatTime(slot.startAt)}
+                      {formatUtcTimeLabel(slot.startAt)}
                     </button>
                   );
                 })}
@@ -260,7 +135,7 @@ function TeacherSlotPicker({
             {localBooking ? "Booking…" : "Confirm Booking"}
           </button>
           <span className="text-sm text-gray-600">
-            {formatDate(selectedSlot)} at {formatTime(selectedSlot)}
+            {formatUtcForDisplay(selectedSlot)}
           </span>
         </div>
       )}
@@ -331,6 +206,7 @@ export default function BookingPage() {
   };
 
   const loading = classesLoading || bookingsLoading || teachersLoading;
+  const viewerTz = getViewerIanaTimezone();
 
   return (
     <ProtectedRoute requiredRole="student">
@@ -347,6 +223,11 @@ export default function BookingPage() {
         <p className="mb-8 text-gray-600">
           Schedule a 1-on-1 session with your teacher.
         </p>
+        {!loading && teachers.length > 0 && viewerTz && (
+          <p className="-mt-6 mb-8 text-xs text-gray-500">
+            Slot labels and your session times are shown in your timezone ({viewerTz}).
+          </p>
+        )}
 
         {loading && <p className="text-gray-500">Loading…</p>}
 
@@ -375,7 +256,7 @@ export default function BookingPage() {
                       {b.teacherName ?? "Teacher"}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {formatDate(b.startAt)} at {formatTime(b.startAt)}–{formatTime(b.endAt)}
+                      {formatUtcForDisplay(b.startAt)} – {formatUtcTimeLabel(b.endAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -441,7 +322,7 @@ export default function BookingPage() {
                       {b.teacherName ?? "Teacher"}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {formatDate(b.startAt)} at {formatTime(b.startAt)}
+                      {formatUtcForDisplay(b.startAt)}
                       {b.status !== "confirmed" && (
                         <span className="ml-2 text-amber-600">
                           ({b.status.replace(/_/g, " ")})

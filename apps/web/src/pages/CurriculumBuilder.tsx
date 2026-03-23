@@ -319,7 +319,13 @@ function CurriculumDetail({
                 {curriculum.courseIds.length} course{curriculum.courseIds.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to={`/teacher/curriculum/${curriculum.id}/program-timeline`}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-primary no-underline hover:bg-gray-50"
+              >
+                Program timeline
+              </Link>
               <button
                 type="button"
                 onClick={() => setEditingDetails(true)}

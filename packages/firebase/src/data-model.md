@@ -22,6 +22,7 @@
 | `classes/{id}/cohorts` | name, limit? | Subcollection |
 | `classes/{id}/enrollments` | userId, cohortId?, status, enrolledAt?, updatedAt? | Subcollection; enrollmentId = userId; `enrolledAt` set on first enroll |
 | `curricula` | teacherId, name, description?, courseIds[], createdAt, updatedAt | Teacher-owned; links multiple courses (classes) into overarching curriculum |
+| `programTimelines` | teacherId, scope (`class` \| `curriculum`), scopeId, title?, weekCount, anchorDate (UTC ms = start of week 1), segments[], milestones[], createdAt, updatedAt | Teacher-only Gantt-style program map; doc id convention `class_{classId}` or `curriculum_{curriculumId}` |
 | `modules` | classId, curriculumId?, name, order?, documentRefs?, **progression** (see below), legacy `releaseMode` / `releasedAt` | documentRefs: PDF/Word/video/audio/image for module-level |
 | `modules/{id}/manualReleaseStudents/{userId}` | optional `releasedAt` | Per-student manual release when module `progressionMode` is `manual` |
 | `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version?, **progression** (see below) | mediaRefs: video/audio/score/image/document (PDF/Word) |

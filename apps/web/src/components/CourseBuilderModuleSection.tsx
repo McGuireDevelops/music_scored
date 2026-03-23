@@ -589,7 +589,7 @@ export function CourseBuilderModuleSection({
               This module is empty. Use the buttons above to add content.
             </p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-3">
               {contentOrder.length > 0 && (
                 <DndContext
                   sensors={sensors}
@@ -608,42 +608,33 @@ export function CourseBuilderModuleSection({
                           .findIndex((l) => l.id === lesson.id);
                         return (
                           <div key={sid}>
-                            <div className="flex items-center gap-1">
-                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-600 bg-blue-50">
-                                Lesson
-                              </span>
-                              <span
-                                className="shrink-0 min-w-[1.5rem] rounded bg-blue-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-blue-800"
-                                title="Order in this module"
-                              >
-                                {index + 1}
-                              </span>
-                              <SortableModuleContentRow
-                                sortableId={sid}
-                                titleContent={
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setEditingLessonId(
-                                        editingLessonId === lesson.id ? null : lesson.id
-                                      )
-                                    }
-                                    className={`w-full px-2 py-3 text-left text-sm ${
-                                      editingLessonId === lesson.id
-                                        ? "font-medium text-gray-900"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {lesson.title}
-                                  </button>
-                                }
-                                onDelete={() => void handleDeleteLesson(lesson)}
-                                deleteAriaLabel={`Delete lesson ${index + 1}`}
-                                presentHref={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
-                              />
-                            </div>
+                            <SortableModuleContentRow
+                              sortableId={sid}
+                              contentKind="lesson"
+                              orderLabel={index + 1}
+                              titleContent={
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingLessonId(
+                                      editingLessonId === lesson.id ? null : lesson.id
+                                    )
+                                  }
+                                  className={`w-full truncate rounded-lg px-1 py-2 text-left text-sm tracking-tight transition-colors ${
+                                    editingLessonId === lesson.id
+                                      ? "font-semibold text-gray-900"
+                                      : "font-medium text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {lesson.title}
+                                </button>
+                              }
+                              onDelete={() => void handleDeleteLesson(lesson)}
+                              deleteAriaLabel={`Delete lesson ${index + 1}`}
+                              presentHref={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
+                            />
                             {editingLessonId === lesson.id && editingLesson && (
-                              <div className="ml-6 mt-1 mb-2 rounded-lg border border-gray-200 bg-white p-4">
+                              <div className="mt-2 rounded-2xl border border-gray-200/80 bg-gray-50/60 p-4 shadow-sm">
                                 <LessonProgressionPanel
                                   lesson={editingLesson}
                                   lessonOrderIndex={lessonOrderIndex >= 0 ? lessonOrderIndex : 0}
@@ -670,61 +661,45 @@ export function CourseBuilderModuleSection({
                         const a = moduleAssignments.find((x) => x.id === item.id);
                         if (!a) return null;
                         return (
-                          <div key={sid} className="flex items-center gap-1">
-                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50">
-                              Assignment
-                            </span>
-                            <span
-                              className="shrink-0 min-w-[1.5rem] rounded bg-amber-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-amber-900"
-                              title="Order in this module"
-                            >
-                              {index + 1}
-                            </span>
-                            <SortableModuleContentRow
-                              sortableId={sid}
-                              titleContent={
-                                <Link
-                                  to={`/teacher/class/${classId}/assignment/${a.id}`}
-                                  className="block truncate px-2 py-3 text-sm text-gray-900 no-underline hover:text-primary hover:underline"
-                                >
-                                  {a.title}
-                                </Link>
-                              }
-                              onDelete={() => void handleDeleteAssignment(a)}
-                              deleteAriaLabel={`Delete assignment ${index + 1}`}
-                              presentHref={`/teacher/class/${classId}/assignment/${a.id}`}
-                            />
-                          </div>
+                          <SortableModuleContentRow
+                            key={sid}
+                            sortableId={sid}
+                            contentKind="assignment"
+                            orderLabel={index + 1}
+                            titleContent={
+                              <Link
+                                to={`/teacher/class/${classId}/assignment/${a.id}`}
+                                className="block truncate rounded-lg px-1 py-2 text-sm font-medium tracking-tight text-gray-900 no-underline transition-colors hover:bg-gray-50 hover:text-primary"
+                              >
+                                {a.title}
+                              </Link>
+                            }
+                            onDelete={() => void handleDeleteAssignment(a)}
+                            deleteAriaLabel={`Delete assignment ${index + 1}`}
+                            presentHref={`/teacher/class/${classId}/assignment/${a.id}`}
+                          />
                         );
                       }
                       const q = moduleQuizzes.find((x) => x.id === item.id);
                       if (!q) return null;
                       return (
-                        <div key={sid} className="flex items-center gap-1">
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-purple-700 bg-purple-50">
-                            Quiz
-                          </span>
-                          <span
-                            className="shrink-0 min-w-[1.5rem] rounded bg-purple-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-purple-900"
-                            title="Order in this module"
-                          >
-                            {index + 1}
-                          </span>
-                          <SortableModuleContentRow
-                            sortableId={sid}
-                            titleContent={
-                              <Link
-                                to={`/teacher/class/${classId}/quiz/${q.id}/edit`}
-                                className="block truncate px-2 py-3 text-sm text-gray-900 no-underline hover:text-primary hover:underline"
-                              >
-                                {q.title}
-                              </Link>
-                            }
-                            onDelete={() => void handleRemoveQuizFromModule(q)}
-                            deleteAriaLabel={`Remove quiz from module ${index + 1}`}
-                            presentHref={`/teacher/class/${classId}/quiz/${q.id}/edit`}
-                          />
-                        </div>
+                        <SortableModuleContentRow
+                          key={sid}
+                          sortableId={sid}
+                          contentKind="quiz"
+                          orderLabel={index + 1}
+                          titleContent={
+                            <Link
+                              to={`/teacher/class/${classId}/quiz/${q.id}/edit`}
+                              className="block truncate rounded-lg px-1 py-2 text-sm font-medium tracking-tight text-gray-900 no-underline transition-colors hover:bg-gray-50 hover:text-primary"
+                            >
+                              {q.title}
+                            </Link>
+                          }
+                          onDelete={() => void handleRemoveQuizFromModule(q)}
+                          deleteAriaLabel={`Remove quiz from module ${index + 1}`}
+                          presentHref={`/teacher/class/${classId}/quiz/${q.id}/edit`}
+                        />
                       );
                     })}
                   </SortableContext>

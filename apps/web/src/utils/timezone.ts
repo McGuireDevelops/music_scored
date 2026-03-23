@@ -27,6 +27,44 @@ export function formatUtcForDisplay(
   }
 }
 
+/** Date-only label for grouping (viewer or explicit IANA zone). */
+export function formatUtcDateLabel(utcMs: number, timezone?: string): string {
+  try {
+    const opts: Intl.DateTimeFormatOptions = {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    };
+    if (timezone) opts.timeZone = timezone;
+    return new Date(utcMs).toLocaleDateString(undefined, opts);
+  } catch {
+    return new Date(utcMs).toISOString().slice(0, 10);
+  }
+}
+
+/** Time-only label (viewer or explicit IANA zone). */
+export function formatUtcTimeLabel(utcMs: number, timezone?: string): string {
+  try {
+    const opts: Intl.DateTimeFormatOptions = {
+      hour: "numeric",
+      minute: "2-digit",
+    };
+    if (timezone) opts.timeZone = timezone;
+    return new Date(utcMs).toLocaleTimeString(undefined, opts);
+  } catch {
+    return new Date(utcMs).toISOString();
+  }
+}
+
+/** Current viewer IANA timezone, when supported. */
+export function getViewerIanaTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Get current UTC timestamp in milliseconds
  */

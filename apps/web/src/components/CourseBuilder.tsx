@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { doc, updateDoc, addDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
+import { seedProgramTimeline } from "../lib/programTimelineFirestore";
 import { useClassModules } from "../hooks/useClassModules";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
@@ -116,6 +118,12 @@ export function CourseBuilder({
         ownerId: userId,
         name: "General",
         createdAt: Date.now(),
+      });
+      await seedProgramTimeline(db, {
+        teacherId: userId,
+        scope: "class",
+        scopeId: ref.id,
+        title: newClassName.trim() || "New class",
       });
       const created: Class = {
         id: ref.id,
@@ -422,13 +430,21 @@ export function CourseBuilder({
                 <span>{quizzes.length} quizzes</span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setEditingCourse(true)}
-              className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Edit details
-            </button>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start">
+              <Link
+                to={`/teacher/class/${classId}/program-timeline`}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-center text-xs font-medium text-primary no-underline transition-colors hover:bg-gray-50"
+              >
+                Program timeline
+              </Link>
+              <button
+                type="button"
+                onClick={() => setEditingCourse(true)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Edit details
+              </button>
+            </div>
           </div>
         )}
       </div>

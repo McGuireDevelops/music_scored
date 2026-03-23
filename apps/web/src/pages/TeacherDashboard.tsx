@@ -22,6 +22,7 @@ import { formatUtcForDisplay } from "../utils/timezone";
 import { lightenHex } from "../utils/color";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { seedProgramTimeline } from "../lib/programTimelineFirestore";
 import { Link, useLocation } from "react-router-dom";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -152,6 +153,12 @@ export default function TeacherDashboard() {
         ownerId: user.uid,
         name: "General",
         createdAt: Date.now(),
+      });
+      await seedProgramTimeline(db, {
+        teacherId: user.uid,
+        scope: "class",
+        scopeId: ref.id,
+        title: name.trim() || "New class",
       });
       setClasses((prev) => [
         ...prev,

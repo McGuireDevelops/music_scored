@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Curriculum } from "@learning-scores/shared";
+import { seedProgramTimeline } from "../lib/programTimelineFirestore";
 
 export interface CurriculumWithId extends Curriculum {
   id: string;
@@ -63,6 +64,12 @@ export function useTeacherCurricula(teacherId: string | undefined) {
       updatedAt: now,
     };
     const ref = await addDoc(collection(db, "curricula"), payload);
+    await seedProgramTimeline(db, {
+      teacherId,
+      scope: "curriculum",
+      scopeId: ref.id,
+      title: data.name,
+    });
     setCurricula((prev) => [
       { id: ref.id, ...payload } as CurriculumWithId,
       ...prev,

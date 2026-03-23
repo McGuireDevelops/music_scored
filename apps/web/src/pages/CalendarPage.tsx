@@ -6,23 +6,11 @@ import { useStudentLiveLessons } from "../hooks/useStudentLiveLessons";
 import { useTeacherSettings } from "../hooks/useTeacherSettings";
 import { useBookings } from "../hooks/useBookings";
 import type { LiveLessonStatus } from "@learning-scores/shared";
-
-function formatDate(ts: number) {
-  const d = new Date(ts);
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import {
+  formatUtcForDisplay,
+  formatUtcTimeLabel,
+  getViewerIanaTimezone,
+} from "../utils/timezone";
 
 function CalendarStatusBadge({ status }: { status?: LiveLessonStatus }) {
   if (status === "live") {
@@ -70,6 +58,7 @@ export default function CalendarPage() {
   const showLive = features.liveLessons !== false;
   const loading = (isTeacherOrAdmin ? teacherLoading : studentLoading) || bookingsLoading;
   const error = isTeacherOrAdmin ? teacherError : studentError;
+  const viewerTz = getViewerIanaTimezone();
 
   return (
     <ProtectedRoute>
@@ -127,7 +116,7 @@ export default function CalendarPage() {
                           <p className="text-sm text-gray-500">{lesson.className}</p>
                         )}
                         <p className="mt-1 text-sm text-gray-600">
-                          {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                          {formatUtcForDisplay(lesson.scheduledAt)}
                           {lesson.duration != null && (
                             <span> &middot; {lesson.duration} min</span>
                           )}
@@ -170,6 +159,11 @@ export default function CalendarPage() {
         {/* Student view */}
         {!loading && isStudent && (
           <>
+            {viewerTz && (
+              <p className="mb-4 text-xs text-gray-500">
+                Live class and booking times use your timezone ({viewerTz}).
+              </p>
+            )}
             {studentLive.length > 0 && (
               <div className="mb-6 space-y-3">
                 {studentLive.map((lesson) => (
@@ -187,7 +181,7 @@ export default function CalendarPage() {
                           <p className="text-sm text-gray-500">{lesson.className}</p>
                         )}
                         <p className="mt-1 text-sm text-gray-600">
-                          Started at {formatTime(lesson.scheduledAt)}
+                          Started at {formatUtcTimeLabel(lesson.scheduledAt)}
                         </p>
                       </div>
                       {lesson.zoomJoinUrl && (
@@ -234,7 +228,7 @@ export default function CalendarPage() {
                           <p className="text-sm text-gray-500">{lesson.className}</p>
                         )}
                         <p className="mt-1 text-sm text-gray-600">
-                          {formatDate(lesson.scheduledAt)} at {formatTime(lesson.scheduledAt)}
+                          {formatUtcForDisplay(lesson.scheduledAt)}
                           {lesson.duration != null && (
                             <span> &middot; {lesson.duration} min</span>
                           )}
@@ -260,6 +254,11 @@ export default function CalendarPage() {
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Upcoming 1-on-1 Sessions
             </h2>
+            {isStudent && viewerTz && (
+              <p className="mb-3 text-xs text-gray-500">
+                Times shown in your timezone ({viewerTz}).
+              </p>
+            )}
             <ul className="space-y-3">
               {upcomingBookings.map((b) => (
                 <li
@@ -272,8 +271,7 @@ export default function CalendarPage() {
                         1-on-1 with {b.teacherName ?? b.studentName ?? "—"}
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
-                        {formatDate(b.startAt)} at {formatTime(b.startAt)}–
-                        {formatTime(b.endAt)}
+                        {formatUtcForDisplay(b.startAt)} – {formatUtcTimeLabel(b.endAt)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

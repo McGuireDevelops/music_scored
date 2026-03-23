@@ -26,6 +26,7 @@ export const createZoomMeeting = onCall(async (request) => {
     classId,
     title,
     scheduledAt,
+    scheduledTimezone,
     duration,
     cohortIds,
     moduleId,
@@ -34,6 +35,7 @@ export const createZoomMeeting = onCall(async (request) => {
     classId: string;
     title: string;
     scheduledAt: number;
+    scheduledTimezone?: string;
     duration?: number;
     cohortIds?: string[];
     moduleId?: string;
@@ -69,6 +71,9 @@ export const createZoomMeeting = onCall(async (request) => {
   if (moduleId) liveLessonData.moduleId = moduleId;
   if (cohortIds?.length) liveLessonData.cohortIds = cohortIds;
   if (topics?.length) liveLessonData.topics = topics;
+  if (typeof scheduledTimezone === "string" && scheduledTimezone.trim().length > 0) {
+    liveLessonData.scheduledTimezone = scheduledTimezone.trim();
+  }
 
   const ref = await admin.firestore().collection("liveLessons").add(liveLessonData);
 

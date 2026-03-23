@@ -3,21 +3,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { useStudentClasses } from "../hooks/useStudentClasses";
 import { useStudentLiveLessons } from "../hooks/useStudentLiveLessons";
 import { Link } from "react-router-dom";
-
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
+import {
+  formatUtcForDisplay,
+  formatUtcTimeLabel,
+  getViewerIanaTimezone,
+} from "../utils/timezone";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -27,6 +17,7 @@ export default function StudentDashboard() {
     upcomingLessons,
     loading: liveLoading,
   } = useStudentLiveLessons(user?.uid);
+  const viewerTz = getViewerIanaTimezone();
 
   return (
     <ProtectedRoute requiredRole="student">
@@ -55,7 +46,7 @@ export default function StudentDashboard() {
                       <h3 className="font-semibold text-gray-900">{l.title}</h3>
                     </div>
                     <p className="text-sm text-gray-600">
-                      {l.className} &middot; Started at {formatTime(l.scheduledAt)}
+                      {l.className} &middot; Started at {formatUtcTimeLabel(l.scheduledAt)}
                     </p>
                   </div>
                   {l.zoomJoinUrl && (
@@ -77,6 +68,11 @@ export default function StudentDashboard() {
         {!liveLoading && upcomingLessons.length > 0 && (
           <div className="mb-6 rounded-card border border-gray-200 bg-white p-5 shadow-card">
             <h3 className="mb-3 font-medium text-gray-900">Upcoming live classes</h3>
+            {viewerTz && (
+              <p className="mb-3 text-xs text-gray-500">
+                Times shown in your timezone ({viewerTz}).
+              </p>
+            )}
             <ul className="space-y-2">
               {upcomingLessons.slice(0, 5).map((l) => (
                 <li key={l.id} className="flex items-center justify-between gap-2">
@@ -88,8 +84,7 @@ export default function StudentDashboard() {
                       {l.title}
                     </Link>
                     <p className="text-xs text-gray-500">
-                      {l.className} &middot; {formatDate(l.scheduledAt)} at{" "}
-                      {formatTime(l.scheduledAt)}
+                      {l.className} &middot; {formatUtcForDisplay(l.scheduledAt)}
                     </p>
                   </div>
                 </li>

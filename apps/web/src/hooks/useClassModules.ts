@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   collection,
   getDocs,
@@ -10,7 +10,11 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import type { Module, ModuleReleaseMode } from "@learning-scores/shared";
+import type { Module, ProgressionMode } from "@learning-scores/shared";
+import {
+  listManualReleasedStudentIds,
+  setManualReleaseForStudent,
+} from "../lib/progressionFirestore";
 
 export interface ModuleWithId extends Module {
   id: string;
@@ -45,16 +49,14 @@ export function useClassModules(classId: string | undefined) {
 
   const createModule = async (data: {
     name: string;
-    releaseMode: ModuleReleaseMode;
-    releasedAt?: number;
+    progressionMode?: ProgressionMode;
     order?: number;
   }) => {
     if (!classId) throw new Error("No class selected");
     const payload = {
       classId,
       name: data.name,
-      releaseMode: data.releaseMode,
-      releasedAt: data.releasedAt ?? null,
+      progressionMode: data.progressionMode ?? "open",
       order: data.order ?? modules.length,
     };
     const ref = await addDoc(collection(db, "modules"), payload);
@@ -64,8 +66,7 @@ export function useClassModules(classId: string | undefined) {
         id: ref.id,
         classId,
         name: data.name,
-        releaseMode: data.releaseMode,
-        releasedAt: data.releasedAt,
+        progressionMode: data.progressionMode ?? "open",
         order: data.order ?? modules.length,
       } as ModuleWithId,
     ]);
@@ -73,13 +74,41 @@ export function useClassModules(classId: string | undefined) {
 
   const updateModule = async (
     moduleId: string,
-    data: Partial<Pick<ModuleWithId, "name" | "releaseMode" | "releasedAt" | "order" | "documentRefs">>
+    data: Partial<
+      Pick<
+        ModuleWithId,
+        | "name"
+        | "releaseMode"
+        | "releasedAt"
+        | "order"
+        | "documentRefs"
+        | "moduleContentOrder"
+        | "progressionMode"
+        | "availableFrom"
+        | "autoInterval"
+        | "autoAnchor"
+        | "autoStartAt"
+        | "manualReleasedToClass"
+      >
+    > & Record<string, unknown>
   ) => {
     await updateDoc(doc(db, "modules", moduleId), data);
     setModules((prev) =>
       prev.map((m) => (m.id === moduleId ? { ...m, ...data } : m))
     );
   };
+
+  const listModuleManualReleasedStudents = useCallback(
+    (moduleId: string) => listManualReleasedStudentIds("modules", moduleId),
+    []
+  );
+
+  const setModuleManualStudentRelease = useCallback(
+    async (moduleId: string, studentId: string, released: boolean) => {
+      await setManualReleaseForStudent("modules", moduleId, studentId, released);
+    },
+    []
+  );
 
   const deleteModule = async (moduleId: string) => {
     await deleteDoc(doc(db, "modules", moduleId));
@@ -93,5 +122,7 @@ export function useClassModules(classId: string | undefined) {
     createModule,
     updateModule,
     deleteModule,
+    listModuleManualReleasedStudents,
+    setModuleManualStudentRelease,
   };
 }

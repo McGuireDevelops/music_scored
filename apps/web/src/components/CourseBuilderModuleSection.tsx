@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { ref, uploadBytes } from "firebase/storage";
-import { storage } from "../firebase";
+import { doc, writeBatch } from "firebase/firestore";
+import { storage, db } from "../firebase";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -13,21 +14,83 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { SortableLessonItem } from "./SortableLessonItem";
+import { SortableModuleContentRow } from "./SortableModuleContentRow";
+import { ModuleProgressionPanel } from "./ModuleProgressionPanel";
+import { LessonProgressionPanel } from "./LessonProgressionPanel";
 import { LessonBuilderForm } from "./LessonBuilderForm";
 import { InlineAssignmentForm } from "./InlineAssignmentForm";
 import { InlineQuizForm } from "./InlineQuizForm";
 import { DocumentViewer } from "./media/DocumentViewer";
-import { useModuleLessons } from "../hooks/useModuleLessons";
+import { useModuleLessons, type LessonWithId } from "../hooks/useModuleLessons";
 import type { ModuleWithId } from "../hooks/useClassModules";
 import type { AssignmentWithId } from "../hooks/useClassAssignments";
 import type { QuizWithId } from "../hooks/useQuizzes";
-import type { MediaReference } from "@learning-scores/shared";
+import type { MediaReference, ModuleContentOrderItem } from "@learning-scores/shared";
 
 type InlineForm = "lesson" | "assignment" | "quiz" | null;
+
+function moduleContentKey(item: ModuleContentOrderItem): string {
+  return `${item.kind}:${item.id}`;
+}
+
+function normalizeModuleContentOrder(
+  stored: ModuleContentOrderItem[] | undefined,
+  lessons: LessonWithId[],
+  moduleAssignments: AssignmentWithId[],
+  moduleQuizzes: QuizWithId[]
+): ModuleContentOrderItem[] {
+  const validLessonIds = new Set(lessons.map((l) => l.id));
+  const validAssignmentIds = new Set(moduleAssignments.map((a) => a.id));
+  const validQuizIds = new Set(moduleQuizzes.map((q) => q.id));
+  const used = new Set<string>();
+  const result: ModuleContentOrderItem[] = [];
+
+  for (const item of stored ?? []) {
+    const key = moduleContentKey(item);
+    if (used.has(key)) continue;
+    if (item.kind === "lesson" && validLessonIds.has(item.id)) {
+      result.push(item);
+      used.add(key);
+    } else if (item.kind === "assignment" && validAssignmentIds.has(item.id)) {
+      result.push(item);
+      used.add(key);
+    } else if (item.kind === "quiz" && validQuizIds.has(item.id)) {
+      result.push(item);
+      used.add(key);
+    }
+  }
+
+  const sortedLessons = [...lessons].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  for (const l of sortedLessons) {
+    const key = moduleContentKey({ kind: "lesson", id: l.id });
+    if (!used.has(key)) {
+      result.push({ kind: "lesson", id: l.id });
+      used.add(key);
+    }
+  }
+
+  for (const a of [...moduleAssignments].sort((x, y) => x.title.localeCompare(y.title))) {
+    const key = moduleContentKey({ kind: "assignment", id: a.id });
+    if (!used.has(key)) {
+      result.push({ kind: "assignment", id: a.id });
+      used.add(key);
+    }
+  }
+
+  for (const q of [...moduleQuizzes].sort((x, y) => x.title.localeCompare(y.title))) {
+    const key = moduleContentKey({ kind: "quiz", id: q.id });
+    if (!used.has(key)) {
+      result.push({ kind: "quiz", id: q.id });
+      used.add(key);
+    }
+  }
+
+  return result;
+}
 
 const MODULE_DOCUMENT_ACCEPT =
   "application/pdf,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx";
@@ -40,8 +103,15 @@ interface CourseBuilderModuleSectionProps {
   allModules: { id: string; name: string }[];
   assignments: AssignmentWithId[];
   quizzes: QuizWithId[];
+  enrollmentUserIds: string[];
   onDeleteModule: (id: string) => Promise<void>;
-  onUpdateModule: (moduleId: string, data: Partial<ModuleWithId>) => Promise<void>;
+  onUpdateModule: (moduleId: string, data: Partial<ModuleWithId> & Record<string, unknown>) => Promise<void>;
+  listModuleManualReleasedStudents: (moduleId: string) => Promise<string[]>;
+  setModuleManualStudentRelease: (
+    moduleId: string,
+    studentId: string,
+    released: boolean
+  ) => Promise<void>;
   createAssignment: (data: {
     classId: string;
     moduleId: string;
@@ -49,14 +119,16 @@ interface CourseBuilderModuleSectionProps {
     title: string;
     brief: string;
     lessonId?: string;
-  }, ownerId: string) => Promise<void>;
+  }, ownerId: string) => Promise<string>;
   createQuiz: (data: {
     classId: string;
     moduleId: string;
     ownerId: string;
     title: string;
-  }, ownerId: string) => Promise<void>;
+  }, ownerId: string) => Promise<string>;
   assignQuizToModule: (quizId: string, moduleId: string) => Promise<void>;
+  deleteAssignment: (assignmentId: string) => Promise<void>;
+  removeQuizFromModule: (quizId: string) => Promise<void>;
   onLessonCreated: () => void;
 }
 
@@ -68,11 +140,16 @@ export function CourseBuilderModuleSection({
   allModules,
   assignments,
   quizzes,
+  enrollmentUserIds,
   onDeleteModule,
   onUpdateModule,
+  listModuleManualReleasedStudents,
+  setModuleManualStudentRelease,
   createAssignment,
   createQuiz,
   assignQuizToModule,
+  deleteAssignment,
+  removeQuizFromModule,
   onLessonCreated,
 }: CourseBuilderModuleSectionProps) {
   const [expanded, setExpanded] = useState(true);
@@ -89,16 +166,48 @@ export function CourseBuilderModuleSection({
     createLesson,
     updateLesson,
     deleteLesson,
-    reorderLessons,
+    refetchLessons,
+    listLessonManualReleasedStudents,
+    setLessonManualStudentRelease,
   } = useModuleLessons(classId, mod.id);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const moduleAssignments = assignments.filter((a) => a.moduleId === mod.id);
   const moduleQuizzes = quizzes.filter((q) => q.moduleId === mod.id);
+
+  const contentOrder = useMemo(
+    () =>
+      normalizeModuleContentOrder(
+        mod.moduleContentOrder,
+        lessons,
+        moduleAssignments,
+        moduleQuizzes
+      ),
+    [mod.moduleContentOrder, lessons, moduleAssignments, moduleQuizzes]
+  );
+
+  const sortableIds = useMemo(() => contentOrder.map(moduleContentKey), [contentOrder]);
+
+  const persistContentOrder = useCallback(
+    async (next: ModuleContentOrderItem[]) => {
+      await onUpdateModule(mod.id, { moduleContentOrder: next });
+      const lessonIdsInOrder = next.filter((x) => x.kind === "lesson").map((x) => x.id);
+      if (lessonIdsInOrder.length > 0) {
+        const batch = writeBatch(db);
+        lessonIdsInOrder.forEach((id, i) => {
+          batch.update(doc(db, "lessons", id), { order: i });
+        });
+        await batch.commit();
+      }
+      await refetchLessons();
+    },
+    [mod.id, onUpdateModule, refetchLessons]
+  );
+
   const moduleNameById = new Map(allModules.map((m) => [m.id, m.name] as const));
   const assignableQuizzes = quizzes
     .filter((q) => q.ownerId === userId && q.moduleId !== mod.id)
@@ -118,14 +227,14 @@ export function CourseBuilderModuleSection({
   });
   const documentRefs = mod.documentRefs ?? [];
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleContentDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = lessons.findIndex((l) => l.id === active.id);
-    const newIndex = lessons.findIndex((l) => l.id === over.id);
-    if (oldIndex !== -1 && newIndex !== -1) {
-      reorderLessons(oldIndex, newIndex);
-    }
+    const oldIndex = sortableIds.indexOf(String(active.id));
+    const newIndex = sortableIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(contentOrder, oldIndex, newIndex);
+    void persistContentOrder(next);
   };
 
   const handleSaveNewLesson = async (
@@ -156,11 +265,50 @@ export function CourseBuilderModuleSection({
     onLessonCreated();
   };
 
-  const handleDeleteLesson = async (lesson: (typeof lessons)[number]) => {
+  const handleDeleteLesson = async (lesson: LessonWithId) => {
     if (!confirm(`Delete lesson "${lesson.title}"?`)) return;
     if (editingLessonId === lesson.id) setEditingLessonId(null);
     await deleteLesson(lesson.id);
+    const remainingLessons = lessons.filter((l) => l.id !== lesson.id);
+    const next = normalizeModuleContentOrder(
+      mod.moduleContentOrder,
+      remainingLessons,
+      moduleAssignments,
+      moduleQuizzes
+    );
+    await persistContentOrder(next);
     onLessonCreated();
+  };
+
+  const handleDeleteAssignment = async (a: AssignmentWithId) => {
+    if (!confirm(`Delete assignment "${a.title}"?`)) return;
+    await deleteAssignment(a.id);
+    const remaining = moduleAssignments.filter((x) => x.id !== a.id);
+    const next = normalizeModuleContentOrder(
+      mod.moduleContentOrder,
+      lessons,
+      remaining,
+      moduleQuizzes
+    );
+    await persistContentOrder(next);
+  };
+
+  const handleRemoveQuizFromModule = async (q: QuizWithId) => {
+    if (
+      !confirm(
+        `Remove quiz "${q.title}" from this module? The quiz will stay in your course library.`
+      )
+    )
+      return;
+    await removeQuizFromModule(q.id);
+    const remaining = moduleQuizzes.filter((x) => x.id !== q.id);
+    const next = normalizeModuleContentOrder(
+      mod.moduleContentOrder,
+      lessons,
+      moduleAssignments,
+      remaining
+    );
+    await persistContentOrder(next);
   };
 
   const handleSaveEditLesson = async (
@@ -333,6 +481,13 @@ export function CourseBuilderModuleSection({
       {/* Expanded content */}
       {expanded && (
         <div className="px-4 py-3">
+          <ModuleProgressionPanel
+            module={mod}
+            enrollmentUserIds={enrollmentUserIds}
+            onUpdateModule={onUpdateModule}
+            listModuleManualReleasedStudents={listModuleManualReleasedStudents}
+            setModuleManualStudentRelease={setModuleManualStudentRelease}
+          />
           {/* Quick-add action bar */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <button
@@ -426,120 +581,155 @@ export function CourseBuilderModuleSection({
             </div>
           )}
 
-          {/* Lessons list with drag-and-drop */}
+          {/* Module content: unified order (lessons, assignments, quizzes) */}
           {lessonsLoading ? (
             <p className="py-2 text-sm text-gray-500">Loading lessons...</p>
-          ) : lessons.length === 0 && moduleAssignments.length === 0 && moduleQuizzes.length === 0 && documentRefs.length === 0 ? (
+          ) : contentOrder.length === 0 && documentRefs.length === 0 ? (
             <p className="py-3 text-center text-sm text-gray-400">
               This module is empty. Use the buttons above to add content.
             </p>
           ) : (
             <div className="space-y-1">
-              {/* Lessons */}
-              {lessons.length > 0 && (
-                <div>
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={lessons.map((l) => l.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {lessons.map((lesson, lessonIndex) => (
-                        <div key={lesson.id}>
-                          <div className="flex items-center gap-1">
-                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-600 bg-blue-50">
-                              Lesson
+              {contentOrder.length > 0 && (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleContentDragEnd}
+                >
+                  <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                    {contentOrder.map((item, index) => {
+                      const sid = moduleContentKey(item);
+                      if (item.kind === "lesson") {
+                        const lesson = lessons.find((l) => l.id === item.id);
+                        if (!lesson) return null;
+                        const lessonOrderIndex = lessons
+                          .slice()
+                          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                          .findIndex((l) => l.id === lesson.id);
+                        return (
+                          <div key={sid}>
+                            <div className="flex items-center gap-1">
+                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-600 bg-blue-50">
+                                Lesson
+                              </span>
+                              <span
+                                className="shrink-0 min-w-[1.5rem] rounded bg-blue-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-blue-800"
+                                title="Order in this module"
+                              >
+                                {index + 1}
+                              </span>
+                              <SortableModuleContentRow
+                                sortableId={sid}
+                                titleContent={
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingLessonId(
+                                        editingLessonId === lesson.id ? null : lesson.id
+                                      )
+                                    }
+                                    className={`w-full px-2 py-3 text-left text-sm ${
+                                      editingLessonId === lesson.id
+                                        ? "font-medium text-gray-900"
+                                        : "text-gray-700"
+                                    }`}
+                                  >
+                                    {lesson.title}
+                                  </button>
+                                }
+                                onDelete={() => void handleDeleteLesson(lesson)}
+                                deleteAriaLabel={`Delete lesson ${index + 1}`}
+                                presentHref={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
+                              />
+                            </div>
+                            {editingLessonId === lesson.id && editingLesson && (
+                              <div className="ml-6 mt-1 mb-2 rounded-lg border border-gray-200 bg-white p-4">
+                                <LessonProgressionPanel
+                                  lesson={editingLesson}
+                                  lessonOrderIndex={lessonOrderIndex >= 0 ? lessonOrderIndex : 0}
+                                  enrollmentUserIds={enrollmentUserIds}
+                                  onUpdateLesson={updateLesson}
+                                  listLessonManualReleasedStudents={listLessonManualReleasedStudents}
+                                  setLessonManualStudentRelease={setLessonManualStudentRelease}
+                                />
+                                <LessonBuilderForm
+                                  lesson={editingLesson}
+                                  classId={classId}
+                                  moduleId={mod.id}
+                                  userId={userId}
+                                  onSave={handleSaveEditLesson}
+                                  onCancel={() => setEditingLessonId(null)}
+                                  isNew={false}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      if (item.kind === "assignment") {
+                        const a = moduleAssignments.find((x) => x.id === item.id);
+                        if (!a) return null;
+                        return (
+                          <div key={sid} className="flex items-center gap-1">
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50">
+                              Assignment
                             </span>
                             <span
-                              className="shrink-0 min-w-[1.5rem] rounded bg-blue-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-blue-800"
-                              title="Lesson order in this module"
+                              className="shrink-0 min-w-[1.5rem] rounded bg-amber-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-amber-900"
+                              title="Order in this module"
                             >
-                              {lessonIndex + 1}
+                              {index + 1}
                             </span>
-                            <div className="flex-1 min-w-0">
-                              <SortableLessonItem
-                                lesson={lesson}
-                                isSelected={editingLessonId === lesson.id}
-                                onSelect={() =>
-                                  setEditingLessonId(
-                                    editingLessonId === lesson.id ? null : lesson.id
-                                  )
-                                }
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteLesson(lesson)}
-                              className="shrink-0 rounded p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
-                              aria-label={`Delete lesson ${lessonIndex + 1}`}
-                            >
-                              &times;
-                            </button>
-                            <Link
-                              to={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
-                              className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-primary no-underline hover:bg-gray-50"
-                            >
-                              Present
-                            </Link>
+                            <SortableModuleContentRow
+                              sortableId={sid}
+                              titleContent={
+                                <Link
+                                  to={`/teacher/class/${classId}/assignment/${a.id}`}
+                                  className="block truncate px-2 py-3 text-sm text-gray-900 no-underline hover:text-primary hover:underline"
+                                >
+                                  {a.title}
+                                </Link>
+                              }
+                              onDelete={() => void handleDeleteAssignment(a)}
+                              deleteAriaLabel={`Delete assignment ${index + 1}`}
+                              presentHref={`/teacher/class/${classId}/assignment/${a.id}`}
+                            />
                           </div>
-                          {editingLessonId === lesson.id && editingLesson && (
-                            <div className="ml-6 mt-1 mb-2 rounded-lg border border-gray-200 bg-white p-4">
-                              <LessonBuilderForm
-                                lesson={editingLesson}
-                                classId={classId}
-                                moduleId={mod.id}
-                                userId={userId}
-                                onSave={handleSaveEditLesson}
-                                onCancel={() => setEditingLessonId(null)}
-                                isNew={false}
-                              />
-                            </div>
-                          )}
+                        );
+                      }
+                      const q = moduleQuizzes.find((x) => x.id === item.id);
+                      if (!q) return null;
+                      return (
+                        <div key={sid} className="flex items-center gap-1">
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-purple-700 bg-purple-50">
+                            Quiz
+                          </span>
+                          <span
+                            className="shrink-0 min-w-[1.5rem] rounded bg-purple-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-purple-900"
+                            title="Order in this module"
+                          >
+                            {index + 1}
+                          </span>
+                          <SortableModuleContentRow
+                            sortableId={sid}
+                            titleContent={
+                              <Link
+                                to={`/teacher/class/${classId}/quiz/${q.id}/edit`}
+                                className="block truncate px-2 py-3 text-sm text-gray-900 no-underline hover:text-primary hover:underline"
+                              >
+                                {q.title}
+                              </Link>
+                            }
+                            onDelete={() => void handleRemoveQuizFromModule(q)}
+                            deleteAriaLabel={`Remove quiz from module ${index + 1}`}
+                            presentHref={`/teacher/class/${classId}/quiz/${q.id}/edit`}
+                          />
                         </div>
-                      ))}
-                    </SortableContext>
-                  </DndContext>
-                </div>
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
               )}
-
-              {/* Assignments */}
-              {moduleAssignments.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-700 bg-amber-50">
-                    Assignment
-                  </span>
-                  <Link
-                    to={`/teacher/class/${classId}/assignment/${a.id}`}
-                    className="min-w-0 flex-1 truncate text-gray-900 no-underline hover:text-primary hover:underline"
-                  >
-                    {a.title}
-                  </Link>
-                </div>
-              ))}
-
-              {/* Quizzes */}
-              {moduleQuizzes.map((q) => (
-                <div
-                  key={q.id}
-                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-purple-700 bg-purple-50">
-                    Quiz
-                  </span>
-                  <Link
-                    to={`/teacher/class/${classId}/quiz/${q.id}/edit`}
-                    className="min-w-0 flex-1 truncate text-gray-900 no-underline hover:text-primary hover:underline"
-                  >
-                    {q.title}
-                  </Link>
-                </div>
-              ))}
 
               {/* Documents */}
               {documentRefs.length > 0 && (

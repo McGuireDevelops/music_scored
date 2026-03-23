@@ -1,20 +1,32 @@
 import { useState } from "react";
+import {
+  normalizeProgression,
+  resolveProgressionAccess,
+} from "@learning-scores/shared";
 import type { ModuleWithId } from "../../hooks/useClassModules";
 
 type ModuleStatus = "current" | "locked" | "complete";
 
 function getModuleStatus(
   module: ModuleWithId,
-  selectedId: string | null
+  selectedId: string | null,
+  ctx: {
+    moduleIndex: number;
+    enrolledAt?: number;
+    manualStudentReleased: boolean;
+    isTeacher: boolean;
+  }
 ): ModuleStatus {
   if (selectedId === module.id) return "current";
-  if (
-    module.releaseMode === "time-released" &&
-    module.releasedAt != null &&
-    module.releasedAt > Date.now()
-  ) {
-    return "locked";
-  }
+  const n = normalizeProgression(module);
+  const r = resolveProgressionAccess(n, {
+    now: Date.now(),
+    orderIndex: ctx.moduleIndex,
+    enrolledAt: ctx.enrolledAt,
+    manualStudentReleased: ctx.manualStudentReleased,
+    isTeacherView: ctx.isTeacher,
+  });
+  if (!r.accessible) return "locked";
   return "complete";
 }
 
@@ -49,6 +61,10 @@ interface ModuleNavProps {
   selectedModule: ModuleWithId | null;
   onSelectModule: (module: ModuleWithId | null) => void;
   isTeacher?: boolean;
+  /** When false (student), progression rules apply using the fields below. */
+  enrolledAt?: number;
+  /** Per-module manual release doc exists for current student */
+  manualReleasedByModuleId?: Record<string, boolean>;
   onCreateModule?: (name: string) => Promise<void>;
   onDeleteModule?: (id: string) => Promise<void>;
 }
@@ -59,6 +75,8 @@ export function ModuleNav({
   selectedModule,
   onSelectModule,
   isTeacher = false,
+  enrolledAt,
+  manualReleasedByModuleId,
   onCreateModule,
   onDeleteModule,
 }: ModuleNavProps) {
@@ -87,7 +105,12 @@ export function ModuleNav({
       {!loading && modules.length > 0 && (
         <nav className="space-y-0.5">
           {modules.map((m, index) => {
-            const status = getModuleStatus(m, selectedModule?.id ?? null);
+            const status = getModuleStatus(m, selectedModule?.id ?? null, {
+              moduleIndex: index,
+              enrolledAt,
+              manualStudentReleased: manualReleasedByModuleId?.[m.id] ?? false,
+              isTeacher,
+            });
             const isLocked = status === "locked";
             const isSelected = selectedModule?.id === m.id;
             const displayName = `Module ${index + 1}: ${m.name}`;

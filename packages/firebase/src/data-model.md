@@ -22,8 +22,21 @@
 | `classes/{id}/cohorts` | name, limit? | Subcollection |
 | `classes/{id}/enrollments` | userId, cohortId?, status, enrolledAt?, updatedAt? | Subcollection; enrollmentId = userId; `enrolledAt` set on first enroll |
 | `curricula` | teacherId, name, description?, courseIds[], createdAt, updatedAt | Teacher-owned; links multiple courses (classes) into overarching curriculum |
-| `modules` | classId, curriculumId?, name, releaseMode, releasedAt?, order?, documentRefs? | documentRefs: PDF/Word/video/audio/image for module-level |
-| `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version? | mediaRefs: video/audio/score/image/document (PDF/Word) |
+| `modules` | classId, curriculumId?, name, order?, documentRefs?, **progression** (see below), legacy `releaseMode` / `releasedAt` | documentRefs: PDF/Word/video/audio/image for module-level |
+| `modules/{id}/manualReleaseStudents/{userId}` | optional `releasedAt` | Per-student manual release when module `progressionMode` is `manual` |
+| `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version?, **progression** (see below) | mediaRefs: video/audio/score/image/document (PDF/Word) |
+| `lessons/{id}/manualReleaseStudents/{userId}` | optional `releasedAt` | Per-student manual release when lesson `progressionMode` is `manual` |
+
+### Module and lesson progression
+
+Teachers set `progressionMode`: `open` | `scheduled` | `automatic` | `manual`.
+
+- **open** — no time or manual gate.
+- **scheduled** — `availableFrom` (UTC ms); legacy `releaseMode: time-released` + `releasedAt` maps to this.
+- **automatic** — `autoInterval` (`daily` / `weekly` / `monthly` / `quarterly` / `yearly`), `autoAnchor` (`course_start` | `enrollment`), and when anchor is `course_start`, `autoStartAt` (UTC ms). Drip uses sibling order index (modules in class, lessons in module). **Server rules:** enrolled students may read documents in `automatic` mode without evaluating the schedule in rules; the app enforces drip in the UI until a future Cloud Function writes denormalized unlock times.
+- **manual** — hidden until `manualReleasedToClass` and/or a doc exists under `manualReleaseStudents/{userId}`.
+
+A lesson is shown only if its **module** and the **lesson** both pass their progression checks (client + rules where implemented).
 | `lessons/{id}/lessonVersions` | version, title, content, summary, mediaRefs, timestamp | Version history when teacher saves as new version |
 | `lessonPlacements` | moduleId, classId, order, linkType, lessonId?, sourceLessonId?, sourceClassId? | Attached/cloned lessons; linkType: owned, attached, cloned |
 | `liveLessons` | classId, ownerId, title, scheduledAt, duration?, cohortIds? | Scheduled live |

@@ -84,6 +84,7 @@ export function useClassQuizzes(classId: string | undefined) {
         updatedAt: Date.now(),
       } as QuizWithId,
     ]);
+    return ref.id;
   };
 
   /** Attach a quiz to this module (module-level). Clears lesson attachment. */
@@ -101,7 +102,22 @@ export function useClassQuizzes(classId: string | undefined) {
     );
   };
 
-  return { quizzes, loading, createQuiz, assignQuizToModule };
+  /** Remove module (and lesson) attachment; quiz remains in the course library. */
+  const removeQuizFromModule = async (quizId: string) => {
+    if (!classId) throw new Error("No class");
+    await updateDoc(doc(db, "quizzes", quizId), {
+      moduleId: deleteField(),
+      lessonId: deleteField(),
+      updatedAt: Date.now(),
+    });
+    setQuizzes((prev) =>
+      prev.map((q) =>
+        q.id === quizId ? { ...q, moduleId: undefined, lessonId: undefined } : q
+      )
+    );
+  };
+
+  return { quizzes, loading, createQuiz, assignQuizToModule, removeQuizFromModule };
 }
 
 export function useQuiz(quizId: string | undefined) {

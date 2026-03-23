@@ -62,6 +62,7 @@ export function useClassAssignments(classId: string | undefined) {
       ...prev,
       { id: ref.id, ...data, classId, ownerId } as AssignmentWithId,
     ]);
+    return ref.id;
   };
 
   const updateAssignment = async (

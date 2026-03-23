@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { functions, httpsCallable } from "../firebase";
 
 export interface TeacherStudent {
@@ -13,6 +13,14 @@ export function useTeacherStudents(teacherId: string | undefined) {
   const [students, setStudents] = useState<TeacherStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const initialFetchDone = useRef(false);
+
+  const refetch = useCallback(() => setRefreshToken((t) => t + 1), []);
+
+  useEffect(() => {
+    initialFetchDone.current = false;
+  }, [teacherId]);
 
   useEffect(() => {
     if (!teacherId) {
@@ -21,9 +29,12 @@ export function useTeacherStudents(teacherId: string | undefined) {
     }
 
     let cancelled = false;
+    const showFullLoading = !initialFetchDone.current;
 
     async function fetchStudents() {
-      setLoading(true);
+      if (showFullLoading) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -45,7 +56,10 @@ export function useTeacherStudents(teacherId: string | undefined) {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          if (showFullLoading) setLoading(false);
+          initialFetchDone.current = true;
+        }
       }
     }
 
@@ -53,7 +67,7 @@ export function useTeacherStudents(teacherId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [teacherId]);
+  }, [teacherId, refreshToken]);
 
-  return { students, loading, error };
+  return { students, loading, error, refetch };
 }

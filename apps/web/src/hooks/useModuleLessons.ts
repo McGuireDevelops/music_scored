@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   collection,
   getDocs,
@@ -13,6 +13,10 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Lesson } from "@learning-scores/shared";
+import {
+  listManualReleasedStudentIds,
+  setManualReleaseForStudent,
+} from "../lib/progressionFirestore";
 
 export interface LessonWithId extends Lesson {
   id: string;
@@ -32,49 +36,41 @@ export function useModuleLessons(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchLessons = useCallback(async (opts?: { silent?: boolean }) => {
     if (!moduleId || !classId) {
       setLessons([]);
       setLoading(false);
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
+    if (!opts?.silent) {
+      setLoading(true);
+    }
     setError(null);
-
-    // Must filter by classId as well as moduleId: Firestore rules allow read when
-    // ownerId matches or ownsClass(classId), etc. A moduleId-only query does not
-    // guarantee those hold for every possible matching doc, so list requests can fail
-    // or omit documents; classId + moduleId aligns the query with ownsClass(classId).
     const q = query(
       collection(db, "lessons"),
       where("classId", "==", classId),
       where("moduleId", "==", moduleId)
     );
-    getDocs(q)
-      .then((snap) => {
-        if (cancelled) return;
-        const list: LessonWithId[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as LessonWithId[];
-        list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setLessons(list);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load lessons");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const snap = await getDocs(q);
+      const list: LessonWithId[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as LessonWithId[];
+      list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setLessons(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load lessons");
+    } finally {
+      if (!opts?.silent) {
+        setLoading(false);
+      }
+    }
   }, [classId, moduleId]);
+
+  useEffect(() => {
+    void fetchLessons();
+  }, [fetchLessons]);
 
   const createLesson = async (
     data: Omit<Lesson, "id">,
@@ -85,11 +81,29 @@ export function useModuleLessons(
     const ref = await addDoc(collection(db, "lessons"), payload);
     const newLesson: LessonWithId = { id: ref.id, ...payload } as LessonWithId;
     setLessons((prev) => [...prev, newLesson].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+    return ref.id;
   };
 
   const updateLesson = async (
     lessonId: string,
-    data: Partial<Pick<LessonWithId, "title" | "content" | "type" | "order" | "mediaRefs" | "summary">>,
+    data: Partial<
+      Pick<
+        LessonWithId,
+        | "title"
+        | "content"
+        | "type"
+        | "order"
+        | "mediaRefs"
+        | "summary"
+        | "progressionMode"
+        | "availableFrom"
+        | "autoInterval"
+        | "autoAnchor"
+        | "autoStartAt"
+        | "manualReleasedToClass"
+      >
+    > &
+      Record<string, unknown>,
     updateMode?: "push" | "newVersion"
   ) => {
     const cleanData = stripUndefined({ ...data });
@@ -119,15 +133,25 @@ export function useModuleLessons(
     } else {
       await updateDoc(doc(db, "lessons", lessonId), cleanData);
     }
-    setLessons((prev) =>
-      prev.map((l) => (l.id === lessonId ? { ...l, ...data } : l))
-    );
+    await fetchLessons({ silent: true });
   };
 
   const deleteLesson = async (lessonId: string) => {
     await deleteDoc(doc(db, "lessons", lessonId));
     setLessons((prev) => prev.filter((l) => l.id !== lessonId));
   };
+
+  const listLessonManualReleasedStudents = useCallback(
+    (lessonId: string) => listManualReleasedStudentIds("lessons", lessonId),
+    []
+  );
+
+  const setLessonManualStudentRelease = useCallback(
+    async (lessonId: string, studentId: string, released: boolean) => {
+      await setManualReleaseForStudent("lessons", lessonId, studentId, released);
+    },
+    []
+  );
 
   const reorderLessons = async (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
@@ -150,5 +174,8 @@ export function useModuleLessons(
     updateLesson,
     deleteLesson,
     reorderLessons,
+    refetchLessons: fetchLessons,
+    listLessonManualReleasedStudents,
+    setLessonManualStudentRelease,
   };
 }

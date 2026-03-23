@@ -22,6 +22,7 @@ import { TeacherPlanEditor } from "../components/live/TeacherPlanEditor";
 import { TeacherClassQuestionQueue } from "../components/live/TeacherClassQuestionQueue";
 import { StudentClassQuestions } from "../components/live/StudentClassQuestions";
 import { useTeacherRecordingShares, useStudentRecordingShares } from "../hooks/useRecordingShares";
+import { StudentCourseContent } from "../components/student/StudentCourseContent";
 
 const VALID_TABS = [
   "builder", "quizzes", "live", "roster", "reports", "playlists", "community", "portfolio",
@@ -234,6 +235,10 @@ function StudentCourseView({ classId }: { classId: string }) {
 
   return (
     <ContentPane title="Course">
+      <div className="mb-8">
+        <h3 className="mb-3 text-sm font-semibold text-gray-900">Course content</h3>
+        <StudentCourseContent classId={classId} />
+      </div>
       {!liveLessonsLoading && liveNow.length > 0 && (
         <div className="mb-6 space-y-3">
           {liveNow.map((l) => (

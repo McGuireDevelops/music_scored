@@ -5,6 +5,7 @@ import { useClassModules } from "../hooks/useClassModules";
 import { useClassAssignments } from "../hooks/useClassAssignments";
 import { useClassQuizzes } from "../hooks/useQuizzes";
 import { useClassLessons } from "../hooks/useClassLessons";
+import { useClassEnrollments } from "../hooks/useEnrollments";
 import { CourseBuilderModuleSection } from "./CourseBuilderModuleSection";
 import type { Quiz } from "@learning-scores/shared";
 import type { Class } from "../hooks/useTeacherClasses";
@@ -34,12 +35,20 @@ export function CourseBuilder({
     createModule,
     updateModule,
     deleteModule,
+    listModuleManualReleasedStudents,
+    setModuleManualStudentRelease,
   } = useClassModules(classId);
+
+  const { enrollments } = useClassEnrollments(classId);
+  const enrollmentUserIds = enrollments
+    .filter((e) => e.status === "enrolled" || !e.status)
+    .map((e) => e.userId);
 
   const {
     assignments,
     loading: assignmentsLoading,
     createAssignment,
+    deleteAssignment,
   } = useClassAssignments(classId);
 
   const {
@@ -47,6 +56,7 @@ export function CourseBuilder({
     loading: quizzesLoading,
     createQuiz,
     assignQuizToModule,
+    removeQuizFromModule,
   } = useClassQuizzes(classId);
 
   const {
@@ -137,7 +147,7 @@ export function CourseBuilder({
     setCreatingModule(true);
     setModuleError("");
     try {
-      await createModule({ name: newModuleName.trim(), releaseMode: "time-released" });
+      await createModule({ name: newModuleName.trim(), progressionMode: "open" });
       setNewModuleName("");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create module";
@@ -173,7 +183,7 @@ export function CourseBuilder({
       },
       ownerId: string
     ) => {
-      await createAssignment(data, ownerId);
+      return createAssignment(data, ownerId);
     },
     [createAssignment]
   );
@@ -188,7 +198,7 @@ export function CourseBuilder({
       },
       ownerId: string
     ) => {
-      await createQuiz(
+      return createQuiz(
         {
           classId: data.classId,
           moduleId: data.moduleId,
@@ -441,11 +451,16 @@ export function CourseBuilder({
               allModules={modules.map((m) => ({ id: m.id, name: m.name }))}
               assignments={assignments}
               quizzes={quizzes}
+              enrollmentUserIds={enrollmentUserIds}
               onDeleteModule={deleteModule}
               onUpdateModule={updateModule}
+              listModuleManualReleasedStudents={listModuleManualReleasedStudents}
+              setModuleManualStudentRelease={setModuleManualStudentRelease}
               createAssignment={handleCreateAssignment}
               createQuiz={handleCreateQuiz}
               assignQuizToModule={handleAssignQuizToModule}
+              deleteAssignment={deleteAssignment}
+              removeQuizFromModule={removeQuizFromModule}
               onLessonCreated={refetchLessons}
             />
           ))}

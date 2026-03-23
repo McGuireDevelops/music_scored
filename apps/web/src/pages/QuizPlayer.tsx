@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { functions, httpsCallable } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { db, functions, httpsCallable } from "../firebase";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuizQuestions, useQuizAttempt, type QuizQuestionWithId } from "../hooks/useQuizzes";
@@ -14,6 +15,7 @@ import {
   useLiveQuizParticipantDraftSync,
   markLiveQuizParticipantSubmitted,
 } from "../hooks/useLiveQuiz";
+import { evaluateStudentModuleLessonAccess } from "../lib/studentProgressionAccess";
 
 const QUESTION_TYPE_LABELS: Record<string, string> = {
   multipleChoiceSingle: "Single choice",
@@ -37,6 +39,12 @@ export default function QuizPlayer() {
   const { user } = useAuth();
   const { questions, loading } = useQuizQuestions(quizId, { forStudent: true });
   const { attempt } = useQuizAttempt(quizId, user?.uid);
+  const { session: liveSession } = useActiveLiveQuizSession(classId, quizId);
+  const [progressionGate, setProgressionGate] = useState<{
+    checked: boolean;
+    ok: boolean;
+    reason?: string;
+  }>({ checked: false, ok: true });
   const [answers, setAnswers] = useState<Record<string, QuizAnswer>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -45,6 +53,36 @@ export default function QuizPlayer() {
     maxScore: number;
     pending?: boolean;
   } | null>(null);
+
+  useEffect(() => {
+    if (!quizId || !classId || !user?.uid) {
+      setProgressionGate({ checked: true, ok: true });
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const snap = await getDoc(doc(db, "quizzes", quizId));
+      if (cancelled) return;
+      if (!snap.exists()) {
+        setProgressionGate({ checked: true, ok: false, reason: "Quiz not found." });
+        return;
+      }
+      const qz = snap.data();
+      const res = await evaluateStudentModuleLessonAccess({
+        classId,
+        studentId: user.uid,
+        isTeacher: false,
+        moduleId: qz.moduleId as string | undefined,
+        lessonId: qz.lessonId as string | undefined,
+      });
+      if (!cancelled) {
+        setProgressionGate({ checked: true, ok: res.ok, reason: res.reason });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quizId, classId, user?.uid]);
 
   useEffect(() => {
     setAnswers((prev) => {
@@ -118,6 +156,33 @@ export default function QuizPlayer() {
       : attempt && canShowScore
         ? { score: attempt.score ?? 0, maxScore: attempt.maxScore ?? 0 }
         : null;
+
+  if (!progressionGate.checked) {
+    return (
+      <ProtectedRoute requiredRole="student">
+        <p className="text-gray-500">Loading…</p>
+      </ProtectedRoute>
+    );
+  }
+
+  if (!progressionGate.ok) {
+    return (
+      <ProtectedRoute requiredRole="student">
+        <div>
+          <Link
+            to={`/student/class/${classId}`}
+            className="mb-4 inline-block text-gray-600 hover:text-gray-900"
+          >
+            ← Back to class
+          </Link>
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Quiz not available</h2>
+          <p className="text-gray-600">
+            {progressionGate.reason ?? "You can’t access this quiz yet."}
+          </p>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   if (attempt || submitted)
     return (

@@ -29,6 +29,7 @@ import type {
   MediaReference,
 } from "@learning-scores/shared";
 import { formatUtcForDisplay } from "../utils/timezone";
+import { evaluateStudentModuleLessonAccess } from "../lib/studentProgressionAccess";
 
 export default function AssignmentDetail() {
   const { classId, assignmentId } = useParams<{
@@ -43,6 +44,11 @@ export default function AssignmentDetail() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [studentProgression, setStudentProgression] = useState<{
+    checked: boolean;
+    ok: boolean;
+    reason?: string;
+  }>({ checked: false, ok: true });
 
   const isTeacher = profile?.role === "teacher" || profile?.role === "admin";
   const viewingSubmission = isTeacher ? selectedSubmission : submission;
@@ -87,6 +93,28 @@ export default function AssignmentDetail() {
       });
     }
   }, [assignmentId, user?.uid, isTeacher]);
+
+  useEffect(() => {
+    if (!assignment || !classId || !user?.uid || isTeacher) {
+      setStudentProgression({ checked: true, ok: true });
+      return;
+    }
+    let cancelled = false;
+    void evaluateStudentModuleLessonAccess({
+      classId,
+      studentId: user.uid,
+      isTeacher: false,
+      moduleId: assignment.moduleId,
+      lessonId: assignment.lessonId,
+    }).then((r) => {
+      if (!cancelled) {
+        setStudentProgression({ checked: true, ok: r.ok, reason: r.reason });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignment, classId, user?.uid, isTeacher]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,7 +207,13 @@ export default function AssignmentDetail() {
         {!isTeacher && (
           <>
             <h3>Your submission</h3>
-            {submission ? (
+            {!studentProgression.checked ? (
+              <p className="text-gray-500">Checking access…</p>
+            ) : !studentProgression.ok ? (
+              <p className="text-gray-600">
+                {studentProgression.reason ?? "This assignment isn’t available yet."}
+              </p>
+            ) : submission ? (
               <>
                 <p>Submitted at {new Date(submission.submittedAt).toLocaleString()}</p>
                 {feedback && (

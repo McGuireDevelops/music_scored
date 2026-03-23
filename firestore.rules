@@ -76,6 +76,55 @@ service cloud.firestore {
         && hasStudentGrant(classId) && hasFulfilledMandatoryRequirements(classId);
     }
 
+    // Progression (modules / lessons): legacy releaseMode + releasedAt supported.
+    function effectiveModuleProgressionMode(data) {
+      return data.get('progressionMode', null) != null
+        ? data.progressionMode
+        : (data.get('releaseMode', '') == 'time-released'
+            ? (data.get('availableFrom', null) != null || data.get('releasedAt', null) != null
+                ? 'scheduled'
+                : 'open')
+            : 'open');
+    }
+
+    function moduleScheduledAvailableMs(data) {
+      return data.get('availableFrom', data.get('releasedAt', 0));
+    }
+
+    function studentCanReadProgressedModule(moduleId, data) {
+      let classId = data.classId;
+      let mode = effectiveModuleProgressionMode(data);
+      return ownsClass(classId) || isAdmin()
+        || (studentCanAccessClassContent(classId) && (
+          mode == 'open'
+          || mode == 'automatic'
+          || (mode == 'scheduled' && moduleScheduledAvailableMs(data) <= request.time.toMillis())
+          || (mode == 'manual' && (
+            data.get('manualReleasedToClass', false) == true
+            || exists(/databases/$(database)/documents/modules/$(moduleId)/manualReleaseStudents/$(request.auth.uid))
+          ))
+        ));
+    }
+
+    function effectiveLessonProgressionMode(data) {
+      return data.get('progressionMode', null) != null ? data.progressionMode : 'open';
+    }
+
+    function studentCanReadProgressedLesson(lessonId, data) {
+      let classId = data.classId;
+      let mode = effectiveLessonProgressionMode(data);
+      return ownsClass(classId) || isAdmin()
+        || (studentCanAccessClassContent(classId) && (
+          mode == 'open'
+          || mode == 'automatic'
+          || (mode == 'scheduled' && data.get('availableFrom', data.get('releasedAt', 0)) <= request.time.toMillis())
+          || (mode == 'manual' && (
+            data.get('manualReleasedToClass', false) == true
+            || exists(/databases/$(database)/documents/lessons/$(lessonId)/manualReleaseStudents/$(request.auth.uid))
+          ))
+        ));
+    }
+
     // Live lesson teaching plan: class owner or live-lesson creator; 1 get on liveLessons/{id}.
     function canAccessLiveLessonTeacherPlan(lessonId) {
       let ll = get(/databases/$(database)/documents/liveLessons/$(lessonId));
@@ -199,7 +248,8 @@ service cloud.firestore {
 
     match /modules/{moduleId} {
       allow read: if request.auth != null && (
-        ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        ownsClass(resource.data.classId) || isAdmin()
+        || studentCanReadProgressedModule(moduleId, resource.data)
       );
       allow create: if request.auth != null && (
         ownsClass(request.resource.data.classId) || isAdmin()
@@ -210,6 +260,20 @@ service cloud.firestore {
       allow delete: if request.auth != null && (
         ownsClass(resource.data.classId) || isAdmin()
       );
+
+      match /manualReleaseStudents/{studentId} {
+        allow read: if request.auth != null && (
+          isAdmin()
+          || ownsClass(get(/databases/$(database)/documents/modules/$(moduleId)).data.classId)
+          || (request.auth.uid == studentId
+            && studentCanAccessClassContent(
+              get(/databases/$(database)/documents/modules/$(moduleId)).data.classId))
+        );
+        allow create, update, delete: if request.auth != null && (
+          isAdmin()
+          || ownsClass(get(/databases/$(database)/documents/modules/$(moduleId)).data.classId)
+        );
+      }
     }
 
     // Lesson placements (attach/clone across modules)
@@ -223,7 +287,8 @@ service cloud.firestore {
     match /lessons/{lessonId} {
       allow read: if request.auth != null && (
         resource.data.ownerId == request.auth.uid
-        || ownsClass(resource.data.classId) || studentCanAccessClassContent(resource.data.classId) || isAdmin()
+        || ownsClass(resource.data.classId) || isAdmin()
+        || studentCanReadProgressedLesson(lessonId, resource.data)
       );
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if request.auth != null && (
@@ -234,6 +299,20 @@ service cloud.firestore {
         allow read, write: if request.auth != null
           && exists(/databases/$(database)/documents/lessons/$(lessonId))
           && get(/databases/$(database)/documents/lessons/$(lessonId)).data.ownerId == request.auth.uid;
+      }
+
+      match /manualReleaseStudents/{studentId} {
+        allow read: if request.auth != null && (
+          isAdmin()
+          || ownsClass(get(/databases/$(database)/documents/lessons/$(lessonId)).data.classId)
+          || (request.auth.uid == studentId
+            && studentCanAccessClassContent(
+              get(/databases/$(database)/documents/lessons/$(lessonId)).data.classId))
+        );
+        allow create, update, delete: if request.auth != null && (
+          isAdmin()
+          || ownsClass(get(/databases/$(database)/documents/lessons/$(lessonId)).data.classId)
+        );
       }
     }
 

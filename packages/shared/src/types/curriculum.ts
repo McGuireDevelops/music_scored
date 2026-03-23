@@ -5,7 +5,28 @@
 import type { MediaReference } from "../media-reference.js";
 import type { CompletionCriteria } from "./certificate.js";
 
+/** @deprecated Legacy Firestore field; use progressionMode. */
 export type ModuleReleaseMode = "time-released" | "mastery-based";
+
+/** How students unlock this module or lesson. */
+export type ProgressionMode = "open" | "scheduled" | "automatic" | "manual";
+
+export type ProgressAutoInterval = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+
+export type ProgressAutoAnchor = "course_start" | "enrollment";
+
+/** Stored on module and lesson documents for progression gating. */
+export interface ContentProgressionFields {
+  progressionMode?: ProgressionMode;
+  /** When mode is scheduled: content is available at or after this UTC ms. */
+  availableFrom?: number;
+  autoInterval?: ProgressAutoInterval;
+  autoAnchor?: ProgressAutoAnchor;
+  /** When autoAnchor is course_start: UTC ms for sibling index 0. */
+  autoStartAt?: number;
+  /** Manual mode: visible to all enrolled students when true. */
+  manualReleasedToClass?: boolean;
+}
 
 export interface Class {
   id: string;
@@ -36,19 +57,31 @@ export interface Curriculum {
   updatedAt?: number;
 }
 
-export interface Module {
+/** Single entry in a module’s ordered mix of lessons, assignments, and quizzes (course builder). */
+export type ModuleContentKind = "lesson" | "assignment" | "quiz";
+
+export interface ModuleContentOrderItem {
+  kind: ModuleContentKind;
+  id: string;
+}
+
+export interface Module extends ContentProgressionFields {
   id: string;
   classId: string;
   curriculumId?: string;
   name: string;
-  releaseMode: ModuleReleaseMode;
-  releasedAt?: number; // for time-released
+  /** @deprecated Prefer progressionMode + availableFrom */
+  releaseMode?: ModuleReleaseMode;
+  /** @deprecated Prefer availableFrom for scheduled mode */
+  releasedAt?: number;
   order?: number;
   /** Module-level documents (PDF, Word, video, audio, images) */
   documentRefs?: MediaReference[];
+  /** Unified ordering of lessons, assignments, and module-level quizzes in the builder. */
+  moduleContentOrder?: ModuleContentOrderItem[];
 }
 
-export interface Lesson {
+export interface Lesson extends ContentProgressionFields {
   id: string;
   classId: string;
   moduleId: string;

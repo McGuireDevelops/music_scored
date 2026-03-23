@@ -43,8 +43,13 @@ export function useModuleLessons(
     setLoading(true);
     setError(null);
 
+    // Must filter by classId as well as moduleId: Firestore rules allow read when
+    // ownerId matches or ownsClass(classId), etc. A moduleId-only query does not
+    // guarantee those hold for every possible matching doc, so list requests can fail
+    // or omit documents; classId + moduleId aligns the query with ownsClass(classId).
     const q = query(
       collection(db, "lessons"),
+      where("classId", "==", classId),
       where("moduleId", "==", moduleId)
     );
     getDocs(q)

@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "lessons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classId", "order": "ASCENDING" },
+        { "fieldPath": "moduleId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "certifications",
       "queryScope": "COLLECTION",
       "fields": [

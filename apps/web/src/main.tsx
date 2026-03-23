@@ -26,6 +26,7 @@ import CertificateDesigner from "./pages/CertificateDesigner";
 import StudentTodoPage from "./pages/StudentTodoPage";
 import StudentProfile from "./pages/StudentProfile";
 import TeacherStudentsPage from "./pages/TeacherStudentsPage";
+import TeacherAnalyticsPage from "./pages/TeacherAnalyticsPage";
 import TeacherCommunityHub from "./pages/TeacherCommunityHub";
 import TeacherLessonsPage from "./pages/TeacherLessonsPage";
 import TeacherAssignmentsPage from "./pages/TeacherAssignmentsPage";
@@ -61,6 +62,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="student/bookings" element={<BookingPage />} />
               <Route path="purchase/:classId" element={<PurchaseClassPage />} />
               <Route path="teacher" element={<Navigate to="/" replace />} />
+              <Route path="teacher/analytics" element={<TeacherAnalyticsPage />} />
               <Route path="teacher/students" element={<TeacherStudentsPage />} />
               <Route path="teacher/community" element={<TeacherCommunityHub />} />
               <Route path="teacher/lessons" element={<TeacherLessonsPage />} />

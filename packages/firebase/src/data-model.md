@@ -14,12 +14,13 @@
 
 | Collection | Key Fields | Notes |
 |------------|------------|-------|
-| `users` | uid, email, displayName, role (student/teacher/admin) | One doc per user |
+| `users` | uid, email, displayName, role (student/teacher/admin), createdAt?, lastActiveAt? | One doc per user; `lastActiveAt` updated on sign-in (throttled) for retention analytics |
 | `accessGrants` | userId, type, scope, validFrom, validTo, paymentRef? | Top-level for listing |
+| `paymentLedger` | teacherId, classId, userId, amount, currency, paidAt, stripeSessionId, paymentIntentId? | Doc id = Stripe Checkout session id; written on `checkout.session.completed`; teacher read for revenue analytics |
 | `users/{uid}/accessGrants/{classId}` | validFrom, validTo | Per-class grant; Cloud Functions only write |
 | `classes` | teacherId, name, description, isPublic?, isPaid?, certificateTemplateId?, completionCriteria? | Teacher-owned (Course = Class) |
 | `classes/{id}/cohorts` | name, limit? | Subcollection |
-| `classes/{id}/enrollments` | userId, cohortId?, status | Subcollection; enrollmentId = userId |
+| `classes/{id}/enrollments` | userId, cohortId?, status, enrolledAt?, updatedAt? | Subcollection; enrollmentId = userId; `enrolledAt` set on first enroll |
 | `curricula` | teacherId, name, description?, courseIds[], createdAt, updatedAt | Teacher-owned; links multiple courses (classes) into overarching curriculum |
 | `modules` | classId, curriculumId?, name, releaseMode, releasedAt?, order?, documentRefs? | documentRefs: PDF/Word/video/audio/image for module-level |
 | `lessons` | classId, moduleId, ownerId, title, type, content?, summary?, mediaRefs?, version? | mediaRefs: video/audio/score/image/document (PDF/Word) |

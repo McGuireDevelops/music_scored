@@ -27,6 +27,7 @@ import {
   deleteTeacherLesson,
 } from "./admin/getTeacherLessons";
 import { getTeacherStudents } from "./admin/getTeacherStudents";
+import { getTeacherAnalytics } from "./admin/getTeacherAnalytics";
 import { getTeacherCommunity } from "./admin/getTeacherCommunity";
 import { createZoomMeeting } from "./zoom/createZoomMeeting";
 import { updateLiveLessonStatus } from "./zoom/updateLiveLessonStatus";
@@ -57,6 +58,7 @@ export {
   updateTeacherLesson,
   deleteTeacherLesson,
   getTeacherStudents,
+  getTeacherAnalytics,
   getTeacherCommunity,
   createZoomMeeting,
   updateLiveLessonStatus,

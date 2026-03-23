@@ -51,3 +51,10 @@ export const generateLessonSummarySchema = z.object({
   title: z.string().max(MAX_STRING_LENGTH).optional(),
   content: z.string().max(50000).optional(),
 });
+
+export const getTeacherAnalyticsSchema = z.object({
+  preset: z.enum(["month", "quarter", "year"]),
+  anchor: z.number().optional(),
+  /** Optional: when caller is admin, load analytics for this teacher instead of self */
+  forTeacherId: z.string().min(1).max(MAX_STRING_LENGTH).optional(),
+});

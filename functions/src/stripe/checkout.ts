@@ -154,6 +154,34 @@ export const stripeWebhook = onRequest(async (req, res) => {
         },
         { merge: true }
       );
+
+      const classDoc = await admin.firestore().doc(`classes/${classId}`).get();
+      const teacherId = classDoc.exists
+        ? (classDoc.data()?.teacherId as string | undefined)
+        : undefined;
+      if (teacherId && session.id) {
+        const pi = session.payment_intent;
+        const paymentIntentId =
+          typeof pi === "string" ? pi : pi && typeof pi === "object" && "id" in pi ? (pi as { id: string }).id : null;
+        const paidAtMs = session.created ? session.created * 1000 : now;
+        await admin
+          .firestore()
+          .doc(`paymentLedger/${session.id}`)
+          .set(
+            {
+              teacherId,
+              classId,
+              userId,
+              amount: session.amount_total ?? 0,
+              currency: (session.currency ?? "usd").toLowerCase(),
+              paidAt: paidAtMs,
+              stripeSessionId: session.id,
+              paymentIntentId,
+              updatedAt: now,
+            },
+            { merge: true }
+          );
+      }
     }
   }
 

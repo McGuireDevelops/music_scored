@@ -14,6 +14,8 @@ export interface EnrollmentWithId {
   userId: string;
   cohortId?: string;
   status: string;
+  enrolledAt?: number;
+  updatedAt?: number;
 }
 
 export function useClassEnrollments(classId: string | undefined) {
@@ -48,16 +50,37 @@ export function useClassEnrollments(classId: string | undefined) {
     status = "enrolled"
   ) => {
     if (!classId) throw new Error("No class");
-    await setDoc(doc(db, "classes", classId, "enrollments", userId), {
-      userId,
-      cohortId: cohortId || null,
-      status,
-      updatedAt: Date.now(),
-    });
+    const ref = doc(db, "classes", classId, "enrollments", userId);
+    const snap = await getDoc(ref);
+    const now = Date.now();
+    const prevData = snap.exists() ? snap.data() : null;
+    const enrolledAt = !snap.exists()
+      ? now
+      : prevData?.enrolledAt != null
+        ? prevData.enrolledAt
+        : prevData?.updatedAt ?? now;
+
+    await setDoc(
+      ref,
+      {
+        userId,
+        cohortId: cohortId || null,
+        status,
+        updatedAt: now,
+        enrolledAt,
+      },
+      { merge: true }
+    );
     setEnrollments((prev) => {
       const existing = prev.find((e) => e.userId === userId);
-      if (existing) return prev.map((e) => (e.userId === userId ? { ...e, cohortId, status } : e));
-      return [...prev, { id: userId, userId, cohortId, status }];
+      if (existing) {
+        return prev.map((e) =>
+          e.userId === userId
+            ? { ...e, cohortId, status, enrolledAt, updatedAt: now }
+            : e
+        );
+      }
+      return [...prev, { id: userId, userId, cohortId, status, enrolledAt, updatedAt: now }];
     });
   };
 

@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   ReactNode,
 } from "react";
@@ -40,16 +41,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const LAST_ACTIVE_PULSE_MS = 60 * 60 * 1000; // at most once per hour
+
+function storageKeyLastActive(uid: string) {
+  return `ls_lastActive_${uid}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastUidRef = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         const profileDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        const now = Date.now();
         if (profileDoc.exists()) {
           const data = profileDoc.data();
           setProfile({
@@ -67,15 +76,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             photoURL: firebaseUser.photoURL ?? null,
             role: "student",
           };
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            role: "student",
-          });
+          await setDoc(
+            doc(db, "users", firebaseUser.uid),
+            {
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              role: "student",
+              lastActiveAt: now,
+            },
+            { merge: true }
+          );
+          try {
+            sessionStorage.setItem(storageKeyLastActive(firebaseUser.uid), String(now));
+          } catch {
+            /* ignore */
+          }
           setProfile(newProfile);
         }
+
+        if (profileDoc.exists()) {
+          const key = storageKeyLastActive(firebaseUser.uid);
+          let prevStored = 0;
+          try {
+            prevStored = Number(sessionStorage.getItem(key) || 0);
+          } catch {
+            prevStored = 0;
+          }
+          if (now - prevStored >= LAST_ACTIVE_PULSE_MS) {
+            try {
+              sessionStorage.setItem(key, String(now));
+            } catch {
+              /* ignore */
+            }
+            setDoc(
+              doc(db, "users", firebaseUser.uid),
+              { lastActiveAt: now },
+              { merge: true }
+            ).catch(() => {
+              /* non-fatal */
+            });
+          }
+        }
+        lastUidRef.current = firebaseUser.uid;
       } else {
         setProfile(null);
+        if (lastUidRef.current) {
+          try {
+            sessionStorage.removeItem(storageKeyLastActive(lastUidRef.current));
+          } catch {
+            /* ignore */
+          }
+        }
+        lastUidRef.current = null;
       }
       setLoading(false);
     });

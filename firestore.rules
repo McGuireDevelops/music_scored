@@ -135,6 +135,14 @@ service cloud.firestore {
       allow write: if false; // only Cloud Functions / Admin SDK
     }
 
+    // Stripe checkout completions; teacher read own rows; only backend writes
+    match /paymentLedger/{entryId} {
+      allow read: if request.auth != null && (
+        resource.data.teacherId == request.auth.uid || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
     // Classes: teacher CRUD own; admin can create/read; student read if has valid AccessGrant and fulfilled mandatory entry requirements
     match /classes/{classId} {
       allow read: if request.auth != null && (

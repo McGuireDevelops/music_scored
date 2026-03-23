@@ -190,6 +190,7 @@ export function SidebarNav({ open = false, collapsed = false, onToggleCollapse }
 
   const teacherTopItems = [
     { to: "/", label: "Dashboard" },
+    ...(isTeacherOrAdmin ? [{ to: "/teacher/analytics", label: "Analytics" as const }] : []),
     ...(isTeacherOrAdmin ? [{ to: "/teacher/students", label: "Students" as const }] : []),
     ...(isTeacherOrAdmin && features.community !== false
       ? [{ to: "/teacher/community", label: "Community" as const }]

@@ -1,7 +1,8 @@
 node_modules/
 functions/_packages/
 dist/
-lib/
+/lib/
+functions/lib/
 build/
 .expo/
 *.local

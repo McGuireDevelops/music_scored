@@ -250,10 +250,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/curricula/$(curriculumId)).data.teacherId == request.auth.uid;
     }
 
-    // Program timelines (Gantt-style map): teacher-only; tied to class or curriculum they own
+    // Program timelines (Gantt-style map): teacher-only; tied to class or curriculum they own.
+    // Single-doc reads/listeners on a missing document have resource == null; requiring
+    // resource.data.teacherId would deny every "not created yet" case (permission error on subscribe).
     match /programTimelines/{docId} {
       allow read: if request.auth != null && (
-        resource.data.teacherId == request.auth.uid || isAdmin()
+        isAdmin()
+        || (resource != null && resource.data.teacherId == request.auth.uid)
+        || (resource == null && isTeacher())
       );
       allow create: if request.auth != null
         && request.resource.data.teacherId == request.auth.uid

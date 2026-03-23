@@ -88,6 +88,7 @@ export function CourseBuilderModuleSection({
     loading: lessonsLoading,
     createLesson,
     updateLesson,
+    deleteLesson,
     reorderLessons,
   } = useModuleLessons(classId, mod.id);
 
@@ -152,6 +153,13 @@ export function CourseBuilderModuleSection({
       userId
     );
     setActiveForm(null);
+    onLessonCreated();
+  };
+
+  const handleDeleteLesson = async (lesson: (typeof lessons)[number]) => {
+    if (!confirm(`Delete lesson "${lesson.title}"?`)) return;
+    if (editingLessonId === lesson.id) setEditingLessonId(null);
+    await deleteLesson(lesson.id);
     onLessonCreated();
   };
 
@@ -439,13 +447,19 @@ export function CourseBuilderModuleSection({
                       items={lessons.map((l) => l.id)}
                       strategy={verticalListSortingStrategy}
                     >
-                      {lessons.map((lesson) => (
+                      {lessons.map((lesson, lessonIndex) => (
                         <div key={lesson.id}>
                           <div className="flex items-center gap-1">
                             <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-blue-600 bg-blue-50">
                               Lesson
                             </span>
-                            <div className="flex-1">
+                            <span
+                              className="shrink-0 min-w-[1.5rem] rounded bg-blue-100/80 px-1.5 py-0.5 text-center text-xs font-semibold tabular-nums text-blue-800"
+                              title="Lesson order in this module"
+                            >
+                              {lessonIndex + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
                               <SortableLessonItem
                                 lesson={lesson}
                                 isSelected={editingLessonId === lesson.id}
@@ -456,6 +470,14 @@ export function CourseBuilderModuleSection({
                                 }
                               />
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteLesson(lesson)}
+                              className="shrink-0 rounded p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Delete lesson ${lessonIndex + 1}`}
+                            >
+                              &times;
+                            </button>
                             <Link
                               to={`/teacher/class/${classId}/present?lessonId=${lesson.id}`}
                               className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-primary no-underline hover:bg-gray-50"

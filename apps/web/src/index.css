@@ -20,3 +20,13 @@
     @apply outline-none ring-2 ring-primary ring-offset-2;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+}

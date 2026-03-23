@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type { QuizQuestionWithId } from "../../hooks/useQuizzes";
 import type {
   QuizAnswer,
   ChordIdentificationPayload,
+  ChordSpellingPayload,
   MultipleChoicePayload,
   VisualScorePayload,
 } from "@learning-scores/shared";
@@ -37,6 +39,22 @@ export function defaultAnswerForQuestion(q: QuizQuestionWithId): QuizAnswer {
       return { type: "staffSingleNote", value: { midi: 60 } };
     case "staffMelody":
       return { type: "staffMelody", value: { midi: [60] } };
+    case "chordSpelling": {
+      const tc = Math.min(
+        12,
+        Math.max(
+          1,
+          Number((q.payload as ChordSpellingPayload).toneCount) || 4
+        )
+      );
+      return {
+        type: "chordSpelling",
+        value: {
+          noteNames: Array.from({ length: tc }, () => ""),
+          midi: Array.from({ length: tc }, (_, i) => 60 + i * 4),
+        },
+      };
+    }
   }
 }
 
@@ -92,6 +110,141 @@ export function QuizQuestionInputs({ q, answer, onChange }: Props) {
       )}
       {q.type === "staffMelody" && (
         <StaffMelodyBlock clef={staffClef} q={q} answer={answer} onChange={onChange} />
+      )}
+      {q.type === "chordSpelling" && (
+        <ChordSpellingBlock q={q} answer={answer} onChange={onChange} staffClef={staffClef} />
+      )}
+    </div>
+  );
+}
+
+function ChordSpellingBlock({
+  q,
+  answer,
+  onChange,
+  staffClef,
+}: {
+  q: QuizQuestionWithId;
+  answer: QuizAnswer;
+  onChange: (a: QuizAnswer) => void;
+  staffClef: "treble" | "bass";
+}) {
+  const [eitherKind, setEitherKind] = useState<"text" | "staff">("text");
+  if (answer.type !== "chordSpelling") return null;
+  const p = q.payload as ChordSpellingPayload;
+  const toneCount = Math.min(12, Math.max(1, Number(p.toneCount) || 4));
+  const mode = p.answerMode;
+  const v = answer.value;
+  const noteNames = v.noteNames ?? [];
+  const midi = v.midi ?? [];
+
+  const ensureNoteNames = (): string[] => {
+    const a = [...noteNames];
+    while (a.length < toneCount) a.push("");
+    return a.slice(0, toneCount);
+  };
+  const ensureMidi = (): number[] => {
+    const a = [...midi];
+    while (a.length < toneCount) a.push(60);
+    return a.slice(0, toneCount);
+  };
+
+  const updateNames = (next: string[]) => {
+    onChange({
+      type: "chordSpelling",
+      value: { ...v, noteNames: next.slice(0, toneCount) },
+    });
+  };
+  const updateMidi = (next: number[]) => {
+    onChange({
+      type: "chordSpelling",
+      value: { ...v, midi: next.slice(0, toneCount) },
+    });
+  };
+
+  const names = ensureNoteNames();
+  const mids = ensureMidi();
+
+  const textPanel = (
+    <div className="space-y-2">
+      <p className="text-sm text-gray-600">
+        Enter {toneCount} note name{toneCount !== 1 ? "s" : ""} (e.g. G or F#).
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {names.map((n, i) => (
+          <label key={i} className="text-sm">
+            Note {i + 1}
+            <input
+              className={`${inputClass()} mt-1 w-20`}
+              value={n}
+              onChange={(e) => {
+                const row = [...names];
+                row[i] = e.target.value;
+                updateNames(row);
+              }}
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
+  const staffPanel = (
+    <div className="space-y-3">
+      <p className="text-sm text-gray-600">Set each pitch on the staff ({toneCount} tones).</p>
+      <StaffMidiPreview
+        midiNotes={mids}
+        clef={staffClef}
+        width={Math.min(520, 120 + toneCount * 56)}
+      />
+      {mids.map((n, idx) => (
+        <div key={idx} className="rounded-lg border border-gray-100 p-3">
+          <p className="mb-2 text-xs font-medium text-gray-600">Tone {idx + 1}</p>
+          <PitchOctaveStrip
+            value={n}
+            onChange={(mv) => {
+              const row = [...mids];
+              row[idx] = mv;
+              updateMidi(row);
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <p className="text-base text-gray-900">
+        In the key of <span className="font-semibold">{p.key}</span>, spell a{" "}
+        <span className="font-semibold">{p.chordLabel}</span>.
+      </p>
+      {mode === "text" && textPanel}
+      {mode === "staff" && staffPanel}
+      {mode === "either" && (
+        <div className="space-y-3">
+          <div className="flex gap-4 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name={`chord-spell-${q.id}`}
+                checked={eitherKind === "text"}
+                onChange={() => setEitherKind("text")}
+              />
+              Note names
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name={`chord-spell-${q.id}`}
+                checked={eitherKind === "staff"}
+                onChange={() => setEitherKind("staff")}
+              />
+              Staff
+            </label>
+          </div>
+          {eitherKind === "text" ? textPanel : staffPanel}
+        </div>
       )}
     </div>
   );

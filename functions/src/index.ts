@@ -17,6 +17,7 @@ import {
 } from "./stripe/checkout";
 import { getStripeConnectOnboardingLink } from "./stripe/connect";
 import { submitQuizAttempt } from "./quiz/submitAttempt";
+import { generateQuizQuestions } from "./quiz/generateQuizQuestions";
 import { listUsers } from "./admin/listUsers";
 import { updateUserRole } from "./admin/updateUserRole";
 import { getTeacherSettings, updateTeacherSettings } from "./admin/getTeacherSettings";
@@ -49,6 +50,7 @@ export {
   stripeWebhook,
   getStripeConnectOnboardingLink,
   submitQuizAttempt,
+  generateQuizQuestions,
   listUsers,
   updateUserRole,
   getTeacherSettings,

@@ -11,6 +11,7 @@ const ANSWER_KEYS = [
   "correctKey",
   "validAnswers",
   "validVectors",
+  "validSpellings",
   "correctRegions",
   "correctSeconds",
   "toleranceSeconds",
@@ -48,6 +49,9 @@ export function extractAnswerKey(
   if (payload.validVectors !== undefined) {
     key.validVectors = payload.validVectors;
   }
+  if (payload.validSpellings !== undefined) {
+    key.validSpellings = payload.validSpellings;
+  }
   if (payload.correctRegions !== undefined) {
     key.correctRegions = payload.correctRegions;
   }
@@ -65,6 +69,12 @@ export function extractAnswerKey(
   }
   if (payload.expectedMidi !== undefined) {
     key.expectedMidi = payload.expectedMidi;
+  }
+  if (payload.answerMode !== undefined) {
+    key.answerMode = payload.answerMode;
+  }
+  if (payload.toneCount !== undefined) {
+    key.toneCount = payload.toneCount;
   }
   return Object.keys(key).length > 0 ? key : null;
 }

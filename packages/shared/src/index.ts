@@ -7,3 +7,4 @@ export * from "./types/index.js";
 export * from "./schemas/index.js";
 export * from "./media-reference.js";
 export * from "./quizGrading.js";
+export * from "./musicTheory.js";

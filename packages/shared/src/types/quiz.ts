@@ -17,7 +17,8 @@ export type QuizQuestionType =
   | "visualScore"
   | "mediaTimeCode"
   | "staffSingleNote"
-  | "staffMelody";
+  | "staffMelody"
+  | "chordSpelling";
 
 export interface MultipleChoicePayload {
   choices: Array<{ key: string; label: string }>;
@@ -86,6 +87,17 @@ export interface StaffMelodyPayload {
   clef?: "treble" | "bass";
 }
 
+export interface ChordSpellingPayload {
+  key: string;
+  chordLabel: string;
+  answerMode: "text" | "staff" | "either";
+  /** Shown to students (expectedMidi is hidden). */
+  toneCount: number;
+  validSpellings: string[][];
+  clef?: "treble" | "bass";
+  expectedMidi?: number[];
+}
+
 export type QuizQuestionPayload =
   | MultipleChoicePayload
   | ChordIdentificationPayload
@@ -98,7 +110,8 @@ export type QuizQuestionPayload =
   | VisualScorePayload
   | MediaTimeCodePayload
   | StaffSingleNotePayload
-  | StaffMelodyPayload;
+  | StaffMelodyPayload
+  | ChordSpellingPayload;
 
 export interface QuizQuestion {
   id: string;
@@ -168,6 +181,14 @@ export interface QuizAnswerStaffMelody {
   value: { midi: number[] };
 }
 
+export interface QuizAnswerChordSpelling {
+  type: "chordSpelling";
+  value: {
+    noteNames?: string[];
+    midi?: number[];
+  };
+}
+
 export type QuizAnswer =
   | QuizAnswerRomanNumeral
   | QuizAnswerNashville
@@ -180,7 +201,8 @@ export type QuizAnswer =
   | QuizAnswerVisualScore
   | QuizAnswerMediaTimeCode
   | QuizAnswerStaffSingleNote
-  | QuizAnswerStaffMelody;
+  | QuizAnswerStaffMelody
+  | QuizAnswerChordSpelling;
 
 export interface QuizAttemptAnswer {
   questionId: string;

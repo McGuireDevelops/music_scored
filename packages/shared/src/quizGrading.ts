@@ -2,6 +2,8 @@
  * Pure helpers for auto-grading quiz answers (used by Cloud Functions and optionally the web app).
  */
 
+import { chordSpellingMatches, sortedMidiPitchClassesEqual } from "./musicTheory.js";
+
 export function normalizeTheoryToken(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -261,6 +263,39 @@ export function computeQuestionPoints(
     if (!Array.isArray(expected) || !Array.isArray(got)) return 0;
     if (expected.length !== got.length) return 0;
     return expected.every((n, i) => n === got[i]) ? points : 0;
+  }
+
+  if (questionType === "chordSpelling") {
+    if (answer.type !== "chordSpelling") return 0;
+    const mode = keyData.answerMode as string | undefined;
+    const validSpellings = (keyData.validSpellings ?? []) as string[][];
+    const expectedMidi = keyData.expectedMidi as number[] | undefined;
+    const toneCount = Number(keyData.toneCount);
+    const expectedLen =
+      Number.isFinite(toneCount) && toneCount > 0
+        ? toneCount
+        : (validSpellings[0] ?? []).length;
+    const v = answer.value as {
+      noteNames?: string[];
+      midi?: number[];
+    };
+    const names = (v?.noteNames ?? []).map((s) => String(s ?? "").trim()).filter(Boolean);
+    const textOk =
+      names.length > 0 &&
+      expectedLen > 0 &&
+      names.length === expectedLen &&
+      chordSpellingMatches(names, validSpellings);
+    const midiArr = (v?.midi ?? []).filter((n) => Number.isFinite(Number(n)));
+    const staffOk =
+      midiArr.length > 0 &&
+      Array.isArray(expectedMidi) &&
+      expectedMidi.length > 0 &&
+      midiArr.length === expectedMidi.length &&
+      sortedMidiPitchClassesEqual(midiArr, expectedMidi);
+    if (mode === "text") return textOk ? points : 0;
+    if (mode === "staff") return staffOk ? points : 0;
+    if (mode === "either") return textOk || staffOk ? points : 0;
+    return 0;
   }
 
   return 0;

@@ -8,6 +8,7 @@ import type {
   QuizQuestionPayload,
   QuizQuestionType,
 } from "@learning-scores/shared";
+import { allKeys, spellChord, chordToMidi } from "@learning-scores/shared";
 import { createEmptyPayload, payloadLooksValid } from "./questionPayloadDefaults";
 import { QuizPromptMedia } from "./QuizPromptMedia";
 import { StaffMidiPreview } from "./vexflow/StaffMidiPreview";
@@ -26,6 +27,7 @@ const QUESTION_TYPES: { value: QuizQuestionType; label: string }[] = [
   { value: "mediaTimeCode", label: "Time code (audio/video)" },
   { value: "staffSingleNote", label: "Staff — single note (MIDI)" },
   { value: "staffMelody", label: "Staff — melody (MIDI sequence)" },
+  { value: "chordSpelling", label: "Chord spelling" },
 ];
 
 const ACCEPT_MEDIA =
@@ -442,6 +444,213 @@ function PayloadFields({
         >
           + Add chord
         </button>
+      </div>
+    );
+  }
+
+  if (type === "chordSpelling") {
+    const key = (payload.key as string) ?? "C Major";
+    const chordLabel = (payload.chordLabel as string) ?? "";
+    const answerMode = (payload.answerMode as "text" | "staff" | "either") ?? "either";
+    const toneCount = Math.min(12, Math.max(1, Number(payload.toneCount) || 4));
+    const validSpellings = (payload.validSpellings as string[][]) ?? [["", "", "", ""]];
+    const clef = (payload.clef as "treble" | "bass") ?? "treble";
+    const expectedMidi = (payload.expectedMidi as number[]) ?? [];
+
+    const applyTheory = () => {
+      const spelled = spellChord(key, chordLabel);
+      const midi = chordToMidi(key, chordLabel, 4);
+      if (!spelled?.length) return;
+      const tc = spelled.length;
+      setPayload((p) => ({
+        ...p,
+        toneCount: tc,
+        validSpellings: [spelled],
+        ...(midi?.length ? { expectedMidi: midi } : {}),
+      }));
+    };
+
+    const setRowNotes = (rowIdx: number, notes: string[]) => {
+      setPayload((p) => {
+        const rows = [...((p.validSpellings as string[][]) ?? [])];
+        rows[rowIdx] = notes;
+        return { ...p, validSpellings: rows };
+      });
+    };
+
+    return (
+      <div className="mb-4 space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <label className="block text-sm">
+            Key
+            <select
+              className={`${inputCls} mt-1 min-w-[10rem]`}
+              value={key}
+              onChange={(e) => setPayload((p) => ({ ...p, key: e.target.value }))}
+            >
+              {allKeys().map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            Chord (Roman numeral)
+            <input
+              className={`${inputCls} mt-1 w-40`}
+              value={chordLabel}
+              onChange={(e) => setPayload((p) => ({ ...p, chordLabel: e.target.value }))}
+              placeholder="e.g. V7"
+            />
+          </label>
+          <label className="block text-sm">
+            Answer mode
+            <select
+              className={`${inputCls} mt-1`}
+              value={answerMode}
+              onChange={(e) =>
+                setPayload((p) => ({
+                  ...p,
+                  answerMode: e.target.value as "text" | "staff" | "either",
+                }))
+              }
+            >
+              <option value="text">Note names only</option>
+              <option value="staff">Staff / MIDI only</option>
+              <option value="either">Student chooses names or staff</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            Number of chord tones
+            <input
+              type="number"
+              min={1}
+              max={12}
+              className={`${inputCls} mt-1 w-24`}
+              value={toneCount}
+              onChange={(e) => {
+                const n = Math.min(12, Math.max(1, Number(e.target.value) || 1));
+                setPayload((p) => {
+                  const rows = ((p.validSpellings as string[][]) ?? [[]]).map((row) => {
+                    const next = [...row];
+                    while (next.length < n) next.push("");
+                    return next.slice(0, n);
+                  });
+                  const midi = ((p.expectedMidi as number[]) ?? []).slice(0, n);
+                  while (midi.length < n) midi.push(60);
+                  return { ...p, toneCount: n, validSpellings: rows, expectedMidi: midi };
+                });
+              }}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          className="text-sm font-medium text-primary hover:underline"
+          onClick={applyTheory}
+        >
+          Auto-fill spelling & MIDI from key + chord
+        </button>
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">
+            Accepted spellings (each row is one enharmonic / ordering option)
+          </p>
+          {validSpellings.map((row, ri) => (
+            <div key={ri} className="mb-3 flex flex-wrap items-end gap-2">
+              {Array.from({ length: toneCount }, (_, i) => (
+                <label key={i} className="text-sm">
+                  Note {i + 1}
+                  <input
+                    className={`${inputCls} mt-1 w-16`}
+                    value={row[i] ?? ""}
+                    onChange={(e) => {
+                      const next = Array.from({ length: toneCount }, (_, j) =>
+                        j === i ? e.target.value : row[j] ?? ""
+                      );
+                      setRowNotes(ri, next);
+                    }}
+                  />
+                </label>
+              ))}
+              {validSpellings.length > 1 && (
+                <button
+                  type="button"
+                  className="text-sm text-red-600 hover:underline"
+                  onClick={() =>
+                    setPayload((p) => ({
+                      ...p,
+                      validSpellings: validSpellings.filter((_, j) => j !== ri),
+                    }))
+                  }
+                >
+                  Remove row
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            className="text-sm font-medium text-primary hover:underline"
+            onClick={() =>
+              setPayload((p) => ({
+                ...p,
+                validSpellings: [
+                  ...validSpellings,
+                  Array.from({ length: toneCount }, () => ""),
+                ],
+              }))
+            }
+          >
+            + Add alternate spelling
+          </button>
+        </div>
+        {(answerMode === "staff" || answerMode === "either") && (
+          <div className="rounded-lg border border-gray-200 p-3">
+            <p className="mb-2 text-sm font-medium text-gray-700">Correct MIDI (staff grading)</p>
+            <label className="mb-2 block text-sm">
+              Clef
+              <select
+                className={`${inputCls} mt-1`}
+                value={clef}
+                onChange={(e) =>
+                  setPayload((p) => ({ ...p, clef: e.target.value as "treble" | "bass" }))
+                }
+              >
+                <option value="treble">Treble</option>
+                <option value="bass">Bass</option>
+              </select>
+            </label>
+            <StaffMidiPreview
+              midiNotes={expectedMidi.slice(0, toneCount)}
+              clef={clef}
+              width={Math.min(520, 120 + toneCount * 56)}
+            />
+            <div className="mt-2 space-y-2">
+              {Array.from({ length: toneCount }, (_, i) => (
+                <label key={i} className="flex items-center gap-2 text-sm">
+                  MIDI {i + 1}
+                  <input
+                    type="number"
+                    min={0}
+                    max={127}
+                    className={`${inputCls} w-24`}
+                    value={expectedMidi[i] ?? 60}
+                    onChange={(e) => {
+                      const v = Math.min(127, Math.max(0, Number(e.target.value) || 0));
+                      setPayload((p) => {
+                        const m = [...((p.expectedMidi as number[]) ?? [])];
+                        while (m.length < toneCount) m.push(60);
+                        m[i] = v;
+                        return { ...p, expectedMidi: m.slice(0, toneCount) };
+                      });
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

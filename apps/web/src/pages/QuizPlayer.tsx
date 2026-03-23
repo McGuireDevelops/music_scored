@@ -29,6 +29,7 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   mediaTimeCode: "Time code",
   staffSingleNote: "Staff — single note",
   staffMelody: "Staff — melody",
+  chordSpelling: "Chord spelling",
 };
 
 export default function QuizPlayer() {

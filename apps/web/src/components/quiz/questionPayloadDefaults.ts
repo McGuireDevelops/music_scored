@@ -62,6 +62,16 @@ export function createEmptyPayload(type: QuizQuestionType): QuizQuestionPayload 
       return { clef: "treble", correctMidi: 60 };
     case "staffMelody":
       return { maxNotes: 8, expectedMidi: [60, 62], clef: "treble" };
+    case "chordSpelling":
+      return {
+        key: "C Major",
+        chordLabel: "V7",
+        answerMode: "either",
+        toneCount: 4,
+        validSpellings: [["G", "B", "D", "F"]],
+        clef: "treble",
+        expectedMidi: [67, 71, 74, 77],
+      };
   }
 }
 
@@ -140,6 +150,34 @@ export function payloadLooksValid(
       const arr = payload.expectedMidi as number[] | undefined;
       return Array.isArray(arr) && arr.length > 0 && arr.every((n) => n >= 0 && n <= 127);
     }
+    case "chordSpelling": {
+      const key = String(payload.key ?? "").trim();
+      const chordLabel = String(payload.chordLabel ?? "").trim();
+      const mode = payload.answerMode as string;
+      const rows = payload.validSpellings as string[][] | undefined;
+      const midi = payload.expectedMidi as number[] | undefined;
+      const toneCount = Number(payload.toneCount);
+      if (!key || !chordLabel) return false;
+      if (!Number.isFinite(toneCount) || toneCount < 1 || toneCount > 12) return false;
+      if (mode !== "text" && mode !== "staff" && mode !== "either") return false;
+      const textOk =
+        Array.isArray(rows) &&
+        rows.length > 0 &&
+        rows.every(
+          (r) =>
+            Array.isArray(r) &&
+            r.length === toneCount &&
+            r.every((n) => String(n ?? "").trim().length > 0)
+        );
+      const staffOk =
+        Array.isArray(midi) &&
+        midi.length > 0 &&
+        midi.length === toneCount &&
+        midi.every((n) => n >= 0 && n <= 127);
+      if (mode === "text") return textOk;
+      if (mode === "staff") return staffOk;
+      return textOk && staffOk;
+    }
     default:
       return false;
   }
@@ -186,6 +224,11 @@ export function summarizeQuestion(q: QuizQuestionWithId): string {
       return `MIDI ${p.correctMidi ?? "?"}`;
     case "staffMelody":
       return `${(p.expectedMidi as number[])?.length ?? 0} notes`;
+    case "chordSpelling": {
+      const k = (p.key as string)?.trim() ?? "";
+      const cl = (p.chordLabel as string)?.trim() ?? "";
+      return k && cl ? `${k} — ${cl}` : "…";
+    }
     default:
       return q.type;
   }

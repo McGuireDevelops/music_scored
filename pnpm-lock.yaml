@@ -96,6 +96,9 @@ importers:
       react-router-dom:
         specifier: ^6.21.0
         version: 6.30.3(react-dom@18.3.1(react@18.2.0))(react@18.2.0)
+      react-to-print:
+        specifier: ^3.3.0
+        version: 3.3.0(react@18.2.0)
       recharts:
         specifier: ^2.12.0
         version: 2.15.4(react-dom@18.3.1(react@18.2.0))(react@18.2.0)
@@ -3846,6 +3849,11 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  react-to-print@3.3.0:
+    resolution: {integrity: sha512-7j9GIeNZA9glZlbv9mIbIHDOOx+WYfRMbJzh04NiSKjdaeGkxJuKjJQrtRuNKtt5AvEVVjrLCPokZ9yJX51Fvg==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ~19
 
   react-transition-group@4.4.5:
     resolution: {integrity: sha512-pZcd1MCJoiKiBR2NRxeCRg13uCXbydPnmB4EOeRrY7480qNWO8IIgQG6zlDkm6uRMsURXPuKq0GWtiM59a5Q6g==}
@@ -9116,6 +9124,10 @@ snapshots:
       react: 18.2.0
       react-dom: 18.3.1(react@18.2.0)
       react-transition-group: 4.4.5(react-dom@18.3.1(react@18.2.0))(react@18.2.0)
+
+  react-to-print@3.3.0(react@18.2.0):
+    dependencies:
+      react: 18.2.0
 
   react-transition-group@4.4.5(react-dom@18.3.1(react@18.2.0))(react@18.2.0):
     dependencies:

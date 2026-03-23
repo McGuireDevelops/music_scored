@@ -52,6 +52,11 @@ export const generateLessonSummarySchema = z.object({
   content: z.string().max(50000).optional(),
 });
 
+export const generateQuizQuestionsSchema = z.object({
+  quizId: z.string().min(1).max(MAX_STRING_LENGTH),
+  prompt: z.string().min(1).max(8000),
+});
+
 export const getTeacherAnalyticsSchema = z.object({
   preset: z.enum(["month", "quarter", "year"]),
   anchor: z.number().optional(),

@@ -110,6 +110,24 @@ export function formatAttemptAnswerDisplay(
       const correct = Array.isArray(exp) ? exp.join(", ") : "—";
       return { student, correct };
     }
+    case "chordSpelling": {
+      const val = answer.value as { noteNames?: string[]; midi?: number[] };
+      const namePart =
+        val.noteNames?.map((n) => String(n).trim()).filter(Boolean).join(" ") || "";
+      const midiPart = val.midi?.length ? `MIDI: ${val.midi.join(", ")}` : "";
+      const student = [namePart, midiPart].filter(Boolean).join(" · ") || "—";
+      const rows = (p.validSpellings as string[][]) ?? [];
+      const correctNames = rows
+        .map((r) => r.map((n) => String(n).trim()).filter(Boolean).join(" "))
+        .filter(Boolean)
+        .join(" | ");
+      const exp = p.expectedMidi as number[] | undefined;
+      const correctMidi = Array.isArray(exp) ? exp.join(", ") : "";
+      const correct = [correctNames, correctMidi ? `MIDI ${correctMidi}` : ""]
+        .filter(Boolean)
+        .join(" · ") || "—";
+      return { student, correct };
+    }
     default:
       return {
         student: JSON.stringify(answer.value ?? null),
@@ -173,6 +191,16 @@ function formatCorrectOnly(q: QuizQuestionWithId): string {
     case "staffMelody": {
       const exp = p.expectedMidi as number[] | undefined;
       return Array.isArray(exp) ? exp.join(", ") : "—";
+    }
+    case "chordSpelling": {
+      const rows = (p.validSpellings as string[][]) ?? [];
+      const names = rows
+        .map((r) => r.map((n) => String(n).trim()).filter(Boolean).join(" "))
+        .filter(Boolean)
+        .join(" | ");
+      const exp = p.expectedMidi as number[] | undefined;
+      const midi = Array.isArray(exp) ? exp.join(", ") : "";
+      return [names, midi ? `MIDI ${midi}` : ""].filter(Boolean).join(" · ") || "—";
     }
     default:
       return "—";

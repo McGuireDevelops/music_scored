@@ -13,6 +13,7 @@ import AssignmentDetail from "./pages/AssignmentDetail";
 import RubricBuilder from "./pages/RubricBuilder";
 import QuizBuilder from "./pages/QuizBuilder";
 import QuizEditPage from "./pages/QuizEditPage";
+import QuizPrintPage from "./pages/QuizPrintPage";
 import QuizAttemptsPage from "./pages/QuizAttemptsPage";
 import LiveQuizMonitorPage from "./pages/LiveQuizMonitorPage";
 import QuizPlayer from "./pages/QuizPlayer";
@@ -95,6 +96,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="help" element={<HelpPage />} />
               <Route path="admin" element={<AdminDashboard />} />
             </Route>
+            <Route
+              path="teacher/class/:classId/quiz/:quizId/print"
+              element={<QuizPrintPage />}
+            />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

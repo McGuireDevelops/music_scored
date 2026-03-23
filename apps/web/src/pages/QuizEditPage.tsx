@@ -10,6 +10,7 @@ import {
   QuizTeacherQuestionEditor,
   QUESTION_TYPES,
 } from "../components/quiz/QuizTeacherQuestionEditor";
+import { QuizGenerateModal } from "../components/quiz/QuizGenerateModal";
 import { summarizeQuestion } from "../components/quiz/questionPayloadDefaults";
 
 type QuizAttachLevel = "course" | "module" | "lesson";
@@ -25,6 +26,7 @@ export default function QuizEditPage() {
   const [editingQuestion, setEditingQuestion] =
     useState<QuizQuestionWithId | null>(null);
   const [addingNew, setAddingNew] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
 
   const effectiveAttachLevel: QuizAttachLevel = quiz?.lessonId
     ? "lesson"
@@ -44,6 +46,7 @@ export default function QuizEditPage() {
     addQuestion,
     updateQuestion,
     deleteQuestion,
+    refetch,
   } = useQuizQuestions(quizId, { forTeacher: true });
 
   const loading = quizLoading || questionsLoading;
@@ -110,6 +113,12 @@ export default function QuizEditPage() {
             className="text-sm font-medium text-primary no-underline transition-colors hover:underline"
           >
             View attempts
+          </Link>
+          <Link
+            to={`/teacher/class/${classId}/quiz/${quizId}/print`}
+            className="text-sm font-medium text-gray-700 no-underline transition-colors hover:text-gray-900 hover:underline"
+          >
+            Print / PDF
           </Link>
         </div>
         <h2 className="mb-4 text-2xl font-semibold tracking-tight text-gray-900">
@@ -210,13 +219,22 @@ export default function QuizEditPage() {
                   onDelete={handleDelete}
                 />
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setAddingNew(true)}
-                  className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-4 font-medium text-gray-600 transition-colors hover:border-primary hover:text-primary"
-                >
-                  + Add question
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddingNew(true)}
+                    className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-4 font-medium text-gray-600 transition-colors hover:border-primary hover:text-primary"
+                  >
+                    + Add question
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGenerateOpen(true)}
+                    className="rounded-xl border border-gray-300 bg-white px-6 py-4 font-medium text-gray-700 transition-colors hover:border-primary hover:text-primary"
+                  >
+                    Generate questions
+                  </button>
+                </div>
               )}
             </div>
             <div className="space-y-3">
@@ -266,6 +284,14 @@ export default function QuizEditPage() {
               <p className="text-gray-600">
                 No questions yet. Add one to get started.
               </p>
+            )}
+            {generateOpen && quizId && (
+              <QuizGenerateModal
+                quizId={quizId}
+                onClose={() => setGenerateOpen(false)}
+                onAdded={() => void refetch()}
+                addQuestion={addQuestion}
+              />
             )}
           </>
         )}

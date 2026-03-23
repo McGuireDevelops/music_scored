@@ -15,6 +15,7 @@ export const quizQuestionTypeSchema = z.enum([
   "mediaTimeCode",
   "staffSingleNote",
   "staffMelody",
+  "chordSpelling",
 ]);
 
 // Individual payload schemas for type-specific validation (optional)
@@ -91,6 +92,16 @@ const polymeterPayloadSchema = z.object({
       ),
     })
   ),
+});
+
+export const chordSpellingPayloadSchema = z.object({
+  key: z.string(),
+  chordLabel: z.string(),
+  answerMode: z.enum(["text", "staff", "either"]),
+  toneCount: z.number().int().min(1).max(12),
+  validSpellings: z.array(z.array(z.string())),
+  clef: z.enum(["treble", "bass"]).optional(),
+  expectedMidi: z.array(z.number()).optional(),
 });
 
 const visualScorePayloadSchema = z.object({
